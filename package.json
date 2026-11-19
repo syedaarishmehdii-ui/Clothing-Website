@@ -1,0 +1,13 @@
+{
+  "name": "n5-apparels-store",
+  "version": "1.0.0",
+  "description": "N5 Apparels - Premium Men's Clothing Storefront & Owner Admin Portal",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["clothing", "ecommerce", "fashion", "upi", "admin-panel", "n5-apparels"],
+  "author": "N5 Apparels",
+  "license": "ISC"
+}

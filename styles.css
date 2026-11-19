@@ -1,0 +1,330 @@
+/* N5 Apparels - Apple-Style Luxury Studio White & Gold Aesthetic */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&display=swap');
+
+:root {
+  --primary-gold: #c5a869;
+  --primary-gold-dark: #a08244;
+  --primary-gold-light: #f5eedb;
+  --gold-gradient: linear-gradient(135deg, #dfc07b 0%, #b8934a 100%);
+  --bg-ivory: #faf9f6;
+  --bg-card: #ffffff;
+  --text-primary: #111111;
+  --text-secondary: #555555;
+  --text-muted: #8e8e93;
+  --border-light: #eae8e1;
+  --border-subtle: #f2f0ea;
+  --shadow-subtle: 0 4px 20px -2px rgba(0, 0, 0, 0.03);
+  --shadow-hover: 0 16px 36px -4px rgba(0, 0, 0, 0.08);
+  --shadow-float: 0 24px 60px -12px rgba(0, 0, 0, 0.12);
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-xl: 32px;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-ivory);
+  color: var(--text-primary);
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+.font-serif {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.font-brand {
+  font-family: 'Cinzel', Georgia, serif;
+  letter-spacing: 0.14em;
+}
+
+/* Glassmorphism */
+.glass-nav {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(234, 232, 225, 0.85);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-subtle);
+}
+
+/* Gold Accents & Badges */
+.badge-gold {
+  background: linear-gradient(135deg, rgba(197, 168, 105, 0.12) 0%, rgba(160, 130, 68, 0.20) 100%);
+  color: #8c6e2d;
+  border: 1px solid rgba(197, 168, 105, 0.35);
+}
+
+.badge-brand {
+  background: #121212;
+  color: #f5eedb;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.gold-gradient-text {
+  background: var(--gold-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.btn-luxury-dark {
+  background-color: #121212;
+  color: #ffffff;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-luxury-dark:hover {
+  background-color: #242424;
+  transform: translateY(-1.5px);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.16);
+}
+
+.btn-luxury-gold {
+  background: var(--gold-gradient);
+  color: #ffffff;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 16px rgba(184, 147, 74, 0.25);
+}
+.btn-luxury-gold:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1.5px);
+  box-shadow: 0 8px 25px rgba(184, 147, 74, 0.35);
+}
+
+/* Pure Studio White Background Product Cards */
+.product-card {
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  background: #ffffff;
+  border: 1px solid #eae8e1;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-subtle);
+}
+
+.product-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover);
+  border-color: #d8d4c9;
+}
+
+.product-card .img-zoom {
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  background-color: #ffffff;
+}
+.product-card:hover .img-zoom {
+  transform: scale(1.04);
+}
+
+/* Tabs & Navigation Dropdown */
+.nav-tab-btn {
+  position: relative;
+  transition: all 0.2s ease;
+  font-weight: 500;
+  color: #555555;
+  border-radius: 9999px;
+  padding: 8px 18px;
+}
+.nav-tab-btn:hover {
+  color: #121212;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+.nav-tab-btn.active {
+  color: #121212;
+  font-weight: 600;
+  background-color: #ffffff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e8e6df;
+}
+
+/* Category dropdown menu */
+.category-dropdown {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.12);
+  border: 1px solid #e8e6df;
+}
+.clothes-group:hover .category-dropdown,
+.clothes-group:focus-within .category-dropdown,
+.category-dropdown.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* Map Container */
+#leaflet-map {
+  width: 100%;
+  height: 380px;
+  border-radius: var(--radius-lg);
+  z-index: 10;
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+.leaflet-popup-content {
+  margin: 14px 18px;
+  font-family: 'Inter', sans-serif;
+  line-height: 1.4;
+}
+
+/* Horizontal Action Bar Buttons */
+.contact-action-btn {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 24px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+.contact-action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.btn-whatsapp {
+  background-color: #25D366;
+  color: #ffffff;
+}
+.btn-whatsapp:hover {
+  background-color: #20BA5A;
+}
+
+.btn-call {
+  background-color: #111827;
+  color: #ffffff;
+}
+.btn-call:hover {
+  background-color: #1F2937;
+}
+
+.btn-instagram {
+  background: linear-gradient(45deg, #F58529, #DD2A7B, #8134AF, #515BD4);
+  color: #ffffff;
+}
+.btn-instagram:hover {
+  filter: brightness(1.08);
+}
+
+/* Strict Payment Verification Gate Styles */
+.utr-input-box {
+  letter-spacing: 0.15em;
+  font-family: monospace;
+  font-weight: 700;
+  transition: all 0.25s ease;
+}
+.utr-input-box:focus {
+  outline: none;
+  border-color: #121212;
+  box-shadow: 0 0 0 3px rgba(18, 18, 18, 0.1);
+}
+.utr-valid {
+  border-color: #16a34a !important;
+  background-color: #f0fdf4 !important;
+}
+.utr-invalid {
+  border-color: #dc2626 !important;
+  background-color: #fef2f2 !important;
+}
+
+.upload-dropzone {
+  border: 2px dashed #d1cfc7;
+  transition: all 0.25s ease;
+  background-color: #faf9f6;
+}
+.upload-dropzone:hover, .upload-dropzone.dragover {
+  border-color: #121212;
+  background-color: #ffffff;
+}
+
+/* Drawer & Modal Transitions */
+.modal-overlay {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.modal-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-content {
+  transform: scale(0.96) translateY(12px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-overlay.active .modal-content {
+  transform: scale(1) translateY(0);
+}
+
+.drawer-sidebar {
+  transform: translateX(100%);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.drawer-sidebar.open {
+  transform: translateX(0);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: #f1efe9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cfcbc0;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #b5b0a3;
+}
+
+/* Printable Tax Invoice Styles */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #email-invoice-modal,
+  #email-invoice-modal *,
+  .printable-invoice,
+  .printable-invoice * {
+    visibility: visible;
+  }
+  #email-invoice-modal {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: auto;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+  .modal-content {
+    box-shadow: none !important;
+    max-height: none !important;
+    border: none !important;
+  }
+}
