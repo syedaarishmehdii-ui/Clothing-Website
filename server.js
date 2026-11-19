@@ -76,6 +76,6 @@ server.listen(PORT, () => {
   console.log(`\n======================================================`);
   console.log(`⚡ N5 Apparels Luxury Storefront & Admin Portal Running!`);
   console.log(`🔗 Local Storefront: http://localhost:${PORT}`);
-  console.log(`🔑 Owner Admin:      http://localhost:${PORT}#admin (PIN: 1234)`);
+  console.log(`🔑 Owner Admin:      http://localhost:${PORT}#admin (Password: 6309592896)`);
   console.log(`======================================================\n`);
 });
