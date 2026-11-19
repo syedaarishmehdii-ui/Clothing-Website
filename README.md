@@ -42,22 +42,20 @@ A luxury Apple-inspired online clothing store designed for **N5 Apparels** (Akba
 ---
 
 ### 4. 👑 Shop Owner Admin Portal (`#admin`)
-* Accessible via the footer **"Owner Login"** or by appending `#admin` to the URL.
-* Default PIN: **`1234`** (Customizable in Settings).
+* **Hidden from Customers**: Zero links, tags, or buttons are displayed to customers. The owner accesses the portal by adding `#admin` to the URL (e.g. `your-domain.com/#admin`).
+* **Secure Admin Password**: **`6309592896`**.
+* **Owner Phone OTP Recovery**: If password is forgotten, the owner can tap *"Login via Owner Phone OTP"*, receive a 6-digit verification code to the registered mobile (`+91 9700663930`), and instantly unlock the dashboard.
+* **Custom UPI Standee QR Code**: Owner can upload a photo of their physical store QR standee, which is automatically displayed to customers at checkout.
+* **Configurable Shipping**: Set standard delivery fees (default ₹99) and free delivery eligibility thresholds (default ₹999).
 * **Super-Simple Stock Listing**:
-  * **Step 1**: Pick photo from phone/computer (auto-resizes and previews).
-  * **Step 2**: Type product title (e.g. *Acid Wash Oversized Tee*).
-  * **Step 3**: Select category (*Shirts, T-Shirts, Jeans, Jackets*).
-  * **Step 4**: Enter price & MRP.
-  * **Step 5**: Check available sizes (S, M, L, XL, XXL, 30, 32, etc.).
-  * **Step 6**: Add fabric details and tap **"Publish Product Live"**.
-* **Order Management & Delivery Tracking**:
-  * View customer orders with name, phone, address, items, and payment reference.
-  * 1-click order status update: `Placed` ➔ `Confirmed` ➔ `Packed` ➔ `Shipped` ➔ `Delivered`.
-  * **"Send WhatsApp Update"**: Generates a pre-formatted WhatsApp message to the customer with their order tracking update with one tap!
-* **Customer Queries Dashboard**:
-  * Review all customer inquiries submitted on the site.
-  * One-click *"Reply on WhatsApp"* to directly open a chat with the customer.
+  * Pick photo (auto-resized and previewed).
+  * Type title, brand, category (Shirts, T-Shirts, Jeans).
+  * Set price & MRP (instant discount % calculation).
+  * Check sizes and tap **"Publish Product Live"**.
+* **Order Management & Payment Verification**:
+  * View customer orders with verified 12-digit UPI UTR and optional screenshot proof.
+  * 1-click status updates: `Placed` ➔ `Confirmed` ➔ `Packed` ➔ `Shipped` ➔ `Delivered`.
+  * Pre-formatted WhatsApp order dispatch updates to customers.
 
 ---
 
@@ -65,26 +63,39 @@ A luxury Apple-inspired online clothing store designed for **N5 Apparels** (Akba
 
 You can run the site in two ways:
 
-### Option A: Using the Built-In Node.js Server (Recommended)
+### Option A: Using the Built-In Node.js Server
 From the project folder `C:\Users\syeda\.gemini\antigravity\scratch\n5-apparels`, run:
 ```powershell
 node server.js
 ```
 Then open your browser to:
 * **Storefront**: [http://localhost:3000](http://localhost:3000)
-* **Owner Admin Panel**: [http://localhost:3000#admin](http://localhost:3000#admin) *(PIN: 1234)*
+* **Owner Admin Panel**: [http://localhost:3000#admin](http://localhost:3000#admin) *(Password: `6309592896`)*
 
 ### Option B: Open Directly in Any Browser
-Double-click `index.html` to open it in Chrome, Edge, Safari, or Firefox without any installation.
+Double-click `index.html` to open it in Chrome, Edge, Safari, or Firefox without any server installation.
 
 ---
 
-## 🌐 Free 1-Click Deployment (Vercel / Netlify / GitHub Pages)
+## 🌐 How to Host on GitHub Pages (Step-by-Step)
 
-The project is structured as a zero-dependency modern web application and can be hosted online for free in under 2 minutes:
-1. **Vercel**: Drag and drop the `n5-apparels` folder onto [vercel.com](https://vercel.com).
-2. **Netlify**: Drag and drop the folder into [netlify.com/drop](https://app.netlify.com/drop).
-3. **GitHub Pages**: Push this directory to a repository and enable GitHub Pages in Settings.
+The project is initialized as a Git repository and is 100% prepared for GitHub Pages hosting:
+
+1. Create a new repository on [GitHub](https://github.com/new) (e.g. `n5-apparels`).
+2. Run these commands in PowerShell from `C:\Users\syeda\.gemini\antigravity\scratch\n5-apparels`:
+   ```powershell
+   git remote add origin https://github.com/<YOUR-USERNAME>/n5-apparels.git
+   git push -u origin main
+   ```
+3. Open your GitHub repository on the web:
+   * Go to **Settings** ➔ **Pages** (in the left sidebar).
+   * Under **Build and deployment** > **Source**, choose **Deploy from a branch**.
+   * Under **Branch**, select `main` and folder `/ (root)`.
+   * Click **Save**.
+4. In about 30 seconds, your website will be live at:
+   `https://<YOUR-USERNAME>.github.io/n5-apparels/`
+   And owner admin portal at:
+   `https://<YOUR-USERNAME>.github.io/n5-apparels/#admin`
 
 ---
 
