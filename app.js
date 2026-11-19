@@ -33,8 +33,11 @@ const Store = {
     adminPin: "6309592896",
     ownerPhone: "9700663930",
     freeShippingAbove: 999,
-    shippingFee: 99
+    shippingFee: 99,
+    supabaseUrl: "",
+    supabaseKey: ""
   },
+  supabaseClient: null,
 
   init() {
     this.loadState();
@@ -1137,6 +1140,7 @@ const Store = {
       // Save order
       this.orders.unshift(newOrder);
       this.saveOrders();
+      this.syncOrderToCloud(newOrder);
 
       // Clear cart
       this.cart = [];
@@ -1431,19 +1435,27 @@ const Store = {
       : 0;
 
     const askWhatsAppText = encodeURIComponent(`Hi N5 Apparels! I would like to check on my Order #${order.id} (${order.status}). My contact: ${order.customerPhone}`);
+    const isCancelled = order.status === 'Cancelled';
+    const canCancel = (order.status === 'Placed' || order.status === 'Confirmed');
 
     return `
-      <div class="bg-white rounded-3xl p-6 md:p-8 border border-neutral-200 shadow-sm mb-6 transition-all hover:shadow-md">
+      <div class="bg-white rounded-3xl p-6 md:p-8 border ${isCancelled ? 'border-rose-200 bg-rose-50/10' : 'border-neutral-200'} shadow-sm mb-6 transition-all hover:shadow-md">
         
         <!-- Header -->
         <div class="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-neutral-100 gap-4">
           <div>
-            <div class="flex items-center gap-2 mb-1">
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
               <span class="text-xs font-bold text-neutral-400">ORDER</span>
               <span class="text-base font-extrabold text-neutral-900 tracking-wide">#${order.id}</span>
-              <span class="badge-gold px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                ${order.status}
-              </span>
+              ${isCancelled ? `
+                <span class="bg-rose-100 text-rose-800 border border-rose-300 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                  <i class="fa-solid fa-ban text-[9px]"></i> Cancelled
+                </span>
+              ` : `
+                <span class="badge-gold px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                  ${order.status}
+                </span>
+              `}
               <span class="bg-emerald-50 text-emerald-800 text-[10px] font-mono font-bold px-2 py-0.5 rounded border border-emerald-200">
                 UTR: ${order.paymentProof ? order.paymentProof.utr : 'VERIFIED'}
               </span>
@@ -1453,7 +1465,13 @@ const Store = {
             </div>
           </div>
 
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            ${canCancel ? `
+              <button onclick="Store.openCancelOrderModal('${order.id}')"
+                      class="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors border border-rose-200">
+                <i class="fa-solid fa-xmark text-xs"></i> Cancel Order
+              </button>
+            ` : ''}
             <a href="https://wa.me/${this.config.whatsappNumber}?text=${askWhatsAppText}" target="_blank"
                class="px-4 py-2 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors">
               <i class="fa-brands fa-whatsapp text-emerald-600"></i> Ask about this order
@@ -1461,35 +1479,55 @@ const Store = {
           </div>
         </div>
 
-        <!-- 5-Step Visual Tracking Timeline -->
-        <div class="py-8">
-          <div class="relative flex items-center justify-between max-w-2xl mx-auto">
-            <div class="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-neutral-200 w-full z-0"></div>
-            <div class="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-neutral-900 transition-all duration-500 z-0" 
-                 style="width: ${(currentStepIndex / (statusSteps.length - 1)) * 100}%"></div>
-
-            ${statusSteps.map((step, idx) => {
-              const isDone = idx <= currentStepIndex;
-              const isCurrent = idx === currentStepIndex;
-              return `
-                <div class="relative z-10 flex flex-col items-center">
-                  <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
-                    isCurrent 
-                      ? 'bg-amber-600 text-white ring-4 ring-amber-100 scale-110'
-                      : isDone
-                        ? 'bg-neutral-900 text-white'
-                        : 'bg-white border-2 border-neutral-300 text-neutral-400'
-                  }">
-                    ${isDone ? (idx === currentStepIndex ? `<i class="fa-solid fa-truck-fast text-[11px]"></i>` : `<i class="fa-solid fa-check text-[10px]"></i>`) : idx + 1}
-                  </div>
-                  <span class="text-[11px] font-semibold mt-2 ${isCurrent ? 'text-amber-800 font-bold' : isDone ? 'text-neutral-900' : 'text-neutral-400'}">
-                    ${step}
-                  </span>
-                </div>
-              `;
-            }).join('')}
+        ${isCancelled ? `
+          <!-- Cancelled Notice Box -->
+          <div class="py-5 px-6 my-6 bg-rose-50/70 border border-rose-200 rounded-2xl flex items-start gap-4">
+            <div class="w-10 h-10 rounded-full bg-rose-100 border border-rose-300 text-rose-700 flex items-center justify-center flex-shrink-0 text-base">
+              <i class="fa-solid fa-ban"></i>
+            </div>
+            <div class="text-xs space-y-1">
+              <span class="font-bold text-rose-900 block text-sm">This Order Has Been Cancelled</span>
+              <p class="text-rose-800">
+                <b>Reason:</b> ${order.cancelReason || 'Customer requested cancellation'}
+              </p>
+              ${order.cancelNote ? `<p class="text-rose-700 italic">"${order.cancelNote}"</p>` : ''}
+              <div class="pt-2 text-rose-900 font-medium text-[11px] flex items-center gap-1.5">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>UPI Refund Notice: If payment was completed, store refund will be processed to your original UPI within 24 hours. Contact WhatsApp for instant assistance.</span>
+              </div>
+            </div>
           </div>
-        </div>
+        ` : `
+          <!-- 5-Step Visual Tracking Timeline -->
+          <div class="py-8">
+            <div class="relative flex items-center justify-between max-w-2xl mx-auto">
+              <div class="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-neutral-200 w-full z-0"></div>
+              <div class="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-neutral-900 transition-all duration-500 z-0" 
+                   style="width: ${(currentStepIndex / (statusSteps.length - 1)) * 100}%"></div>
+
+              ${statusSteps.map((step, idx) => {
+                const isDone = idx <= currentStepIndex;
+                const isCurrent = idx === currentStepIndex;
+                return `
+                  <div class="relative z-10 flex flex-col items-center">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
+                      isCurrent 
+                        ? 'bg-amber-600 text-white ring-4 ring-amber-100 scale-110'
+                        : isDone
+                          ? 'bg-neutral-900 text-white'
+                          : 'bg-white border-2 border-neutral-300 text-neutral-400'
+                    }">
+                      ${isDone ? (idx === currentStepIndex ? `<i class="fa-solid fa-truck-fast text-[11px]"></i>` : `<i class="fa-solid fa-check text-[10px]"></i>`) : idx + 1}
+                    </div>
+                    <span class="text-[11px] font-semibold mt-2 ${isCurrent ? 'text-amber-800 font-bold' : isDone ? 'text-neutral-900' : 'text-neutral-400'}">
+                      ${step}
+                    </span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `}
 
         <!-- Order Items & Shipping Address -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-neutral-100">
@@ -1761,6 +1799,7 @@ const Store = {
 
       this.currentUser = user;
       localStorage.setItem('n5_current_user', JSON.stringify(user));
+      this.syncUserToCloud(user);
       this.updateUserUI();
       this.closeAuthModal();
       this.showToast(`Welcome back, ${user.name}!`);
@@ -1831,6 +1870,7 @@ const Store = {
 
       this.currentUser = newUser;
       localStorage.setItem('n5_current_user', JSON.stringify(newUser));
+      this.syncUserToCloud(newUser);
 
       this.updateUserUI();
       this.closeAuthModal();
@@ -1863,6 +1903,7 @@ const Store = {
 
       this.currentUser = user;
       localStorage.setItem('n5_current_user', JSON.stringify(user));
+      this.syncUserToCloud(user);
 
       this.updateUserUI();
       this.closeAuthModal();
@@ -2066,6 +2107,7 @@ const Store = {
     this.renderAdminOrders();
     this.renderAdminProducts();
     this.renderAdminQueries();
+    this.initAdminSettingsForm();
     this.renderCustomQrPreview();
   },
 
@@ -2468,7 +2510,12 @@ const Store = {
     const order = this.orders.find(o => o.id === orderId);
     if (!order) return;
     order.status = newStatus;
+    if (newStatus === 'Cancelled' && !order.cancelReason) {
+      order.cancelReason = 'Cancelled by Store Admin';
+      order.cancelledAt = new Date().toISOString();
+    }
     this.saveOrders();
+    this.syncOrderToCloud(order);
     this.renderAdminOrders();
     this.renderOrdersTab();
     this.showToast(`Order #${orderId} marked as "${newStatus}"`);
@@ -2540,7 +2587,7 @@ const Store = {
       `Hello ${order.customerName}! 🛍️\n\n` +
       `Update on your *N5 Apparels* order *#${order.id}*:\n` +
       `Status: *${order.status.toUpperCase()}* 🚀\n` +
-      `Verified UPI UTR: *${order.paymentProof.utr}*\n\n` +
+      `Verified UPI UTR: *${order.paymentProof ? order.paymentProof.utr : 'VERIFIED'}*\n\n` +
       `Items: ${order.items.map(i => `${i.name} (${i.size})`).join(', ')}\n` +
       `Total Paid: ₹${order.total}\n\n` +
       `Thank you for shopping with N5 Apparels! For inquiries, visit Akbar Plaza, Malakpet.`
@@ -2559,13 +2606,21 @@ const Store = {
       return;
     }
 
-    container.innerHTML = this.orders.map(order => `
-      <div class="bg-white p-5 rounded-2xl border border-neutral-200 shadow-sm space-y-4">
+    container.innerHTML = this.orders.map(order => {
+      const isCancelled = order.status === 'Cancelled';
+      return `
+      <div class="bg-white p-5 rounded-2xl border ${isCancelled ? 'border-rose-200 bg-rose-50/20' : 'border-neutral-200'} shadow-sm space-y-4">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-3 border-b border-neutral-100">
           <div>
             <div class="flex items-center gap-2 flex-wrap">
               <span class="text-sm font-extrabold text-neutral-900">Order #${order.id}</span>
-              <span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900">${order.status}</span>
+              ${isCancelled ? `
+                <span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-900 border border-rose-300">
+                  <i class="fa-solid fa-ban mr-1"></i> Cancelled
+                </span>
+              ` : `
+                <span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900">${order.status}</span>
+              `}
               <span class="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
                 UTR: ${order.paymentProof ? order.paymentProof.utr : 'N/A'}
               </span>
@@ -2580,7 +2635,7 @@ const Store = {
             </button>
 
             <select onchange="Store.updateOrderStatus('${order.id}', this.value)" 
-              class="text-xs font-bold border border-neutral-300 rounded-xl px-3 py-1.5 bg-neutral-50 text-neutral-900">
+              class="text-xs font-bold border ${isCancelled ? 'border-rose-300 bg-rose-50 text-rose-900' : 'border-neutral-300 bg-neutral-50 text-neutral-900'} rounded-xl px-3 py-1.5">
               <option value="Placed" ${order.status === 'Placed' ? 'selected' : ''}>Placed</option>
               <option value="Confirmed" ${order.status === 'Confirmed' ? 'selected' : ''}>Confirmed</option>
               <option value="Packed" ${order.status === 'Packed' ? 'selected' : ''}>Packed</option>
@@ -2595,6 +2650,17 @@ const Store = {
             </button>
           </div>
         </div>
+
+        ${isCancelled ? `
+          <div class="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2">
+            <i class="fa-solid fa-triangle-exclamation text-rose-600 mt-0.5"></i>
+            <div>
+              <span class="font-bold text-rose-900">Cancellation Reason:</span> ${order.cancelReason || 'Customer requested'}
+              ${order.cancelNote ? `<p class="italic text-rose-700 mt-0.5">"${order.cancelNote}"</p>` : ''}
+              <p class="text-[11px] text-rose-600 mt-1 font-semibold">UTR: ${order.paymentProof ? order.paymentProof.utr : 'N/A'} — Initiate refund to customer if verified.</p>
+            </div>
+          </div>
+        ` : ''}
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
           <div>
@@ -2621,7 +2687,8 @@ const Store = {
           </div>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   },
 
   renderAdminQueries() {
@@ -2673,6 +2740,28 @@ const Store = {
     this.showToast("Query deleted");
   },
 
+  initAdminSettingsForm() {
+    const upiInput = document.getElementById('cfg-upi-id');
+    const waInput = document.getElementById('cfg-whatsapp-num');
+    const pwdInput = document.getElementById('cfg-admin-password');
+    const phoneInput = document.getElementById('cfg-owner-phone');
+    const freeInput = document.getElementById('cfg-free-shipping');
+    const feeInput = document.getElementById('cfg-shipping-fee');
+    const supaUrlInput = document.getElementById('cfg-supabase-url');
+    const supaKeyInput = document.getElementById('cfg-supabase-key');
+
+    if (upiInput) upiInput.value = this.config.upiId || '9700663930@okbizaxis';
+    if (waInput) waInput.value = this.config.whatsappNumber || '919700663930';
+    if (pwdInput) pwdInput.value = this.config.adminPassword || '6309592896';
+    if (phoneInput) phoneInput.value = this.config.ownerPhone || '9700663930';
+    if (freeInput) freeInput.value = this.config.freeShippingAbove ?? 999;
+    if (feeInput) feeInput.value = this.config.shippingFee ?? 99;
+    if (supaUrlInput) supaUrlInput.value = this.config.supabaseUrl || '';
+    if (supaKeyInput) supaKeyInput.value = this.config.supabaseKey || '';
+
+    this.updateCloudDbStatusBadge();
+  },
+
   handleSaveStoreConfig(e) {
     e.preventDefault();
     const upi = document.getElementById('cfg-upi-id')?.value.trim();
@@ -2681,6 +2770,8 @@ const Store = {
     const recoveryPhone = document.getElementById('cfg-owner-phone')?.value.trim();
     const freeShipping = document.getElementById('cfg-free-shipping')?.value.trim();
     const shippingFee = document.getElementById('cfg-shipping-fee')?.value.trim();
+    const supaUrl = document.getElementById('cfg-supabase-url')?.value.trim();
+    const supaKey = document.getElementById('cfg-supabase-key')?.value.trim();
 
     if (upi) this.config.upiId = upi;
     if (wa) {
@@ -2694,10 +2785,245 @@ const Store = {
     if (recoveryPhone) this.config.ownerPhone = recoveryPhone;
     if (freeShipping) this.config.freeShippingAbove = Number(freeShipping);
     if (shippingFee) this.config.shippingFee = Number(shippingFee);
+    if (supaUrl !== undefined) this.config.supabaseUrl = supaUrl;
+    if (supaKey !== undefined) this.config.supabaseKey = supaKey;
 
+    this.supabaseClient = null; // Reset to re-initialize with latest config
     this.saveConfig();
+    this.updateCloudDbStatusBadge();
     this.renderCart();
-    this.showToast("All store settings & payment controls saved successfully!");
+    this.showToast("All store settings & database configuration saved successfully!");
+  },
+
+  getSupabase() {
+    if (this.supabaseClient) return this.supabaseClient;
+    if (window.supabase && this.config.supabaseUrl && this.config.supabaseKey) {
+      try {
+        this.supabaseClient = window.supabase.createClient(this.config.supabaseUrl, this.config.supabaseKey);
+        return this.supabaseClient;
+      } catch (err) {
+        console.warn("Supabase init error:", err);
+        return null;
+      }
+    }
+    return null;
+  },
+
+  updateCloudDbStatusBadge() {
+    const badge = document.getElementById('cloud-db-status');
+    if (!badge) return;
+    if (this.config.supabaseUrl && this.config.supabaseKey) {
+      badge.className = "px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300";
+      badge.innerHTML = `<i class="fa-solid fa-cloud mr-1"></i> Supabase Live`;
+    } else {
+      badge.className = "px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-200 text-neutral-700";
+      badge.innerHTML = `Local Storage`;
+    }
+  },
+
+  async testCloudDbConnection() {
+    const supaUrl = document.getElementById('cfg-supabase-url')?.value.trim() || this.config.supabaseUrl;
+    const supaKey = document.getElementById('cfg-supabase-key')?.value.trim() || this.config.supabaseKey;
+
+    if (!supaUrl || !supaKey) {
+      this.showToast("Please enter Supabase Project URL and Public Anon Key first!");
+      return;
+    }
+
+    if (!window.supabase) {
+      this.showToast("Supabase library loading... Check internet connection.");
+      return;
+    }
+
+    this.showToast("Testing connection to Supabase cloud...");
+    try {
+      const client = window.supabase.createClient(supaUrl, supaKey);
+      const { data, error } = await client.from('n5_users').select('id').limit(1);
+      if (error && error.code !== 'PGRST116') {
+        if (error.code === '42P01') {
+          this.showToast("Connected to Supabase! (Now run supabase_schema.sql in SQL Editor)");
+        } else {
+          throw error;
+        }
+      } else {
+        this.showToast("✅ Successfully connected to Supabase Cloud Database!");
+      }
+      this.config.supabaseUrl = supaUrl;
+      this.config.supabaseKey = supaKey;
+      this.saveConfig();
+      this.supabaseClient = client;
+      this.updateCloudDbStatusBadge();
+    } catch (err) {
+      console.error("Supabase test error:", err);
+      this.showToast(`Connection error: ${err.message || 'Check URL and Key'}`);
+    }
+  },
+
+  async syncLocalDataToCloud() {
+    const client = this.getSupabase();
+    if (!client) {
+      this.showToast("Supabase is not configured. Enter Project URL and Key, then save.");
+      return;
+    }
+
+    this.showToast("Syncing local users & orders to cloud database...");
+    let userCount = 0;
+    let orderCount = 0;
+
+    try {
+      if (this.registeredUsers.length > 0) {
+        const usersPayload = this.registeredUsers.map(u => ({
+          name: u.name,
+          email: u.email ? u.email.toLowerCase() : null,
+          phone: u.phone,
+          password: u.password,
+          verified: !!u.verified,
+          created_at: u.createdAt || new Date().toISOString()
+        }));
+        const { error: uErr } = await client.from('n5_users').upsert(usersPayload, { onConflict: 'phone' });
+        if (uErr) {
+          console.warn("User sync warning:", uErr);
+        } else {
+          userCount = usersPayload.length;
+        }
+      }
+
+      if (this.orders.length > 0) {
+        const ordersPayload = this.orders.map(o => ({
+          id: o.id,
+          customer_name: o.customerName,
+          customer_email: o.customerEmail || null,
+          customer_phone: o.customerPhone,
+          address: o.address,
+          items: o.items || [],
+          subtotal: o.subtotal || 0,
+          shipping: o.shipping || 0,
+          total: o.total || 0,
+          status: o.status || 'Placed',
+          payment_method: o.paymentMethod || 'UPI QR (Verified)',
+          utr: o.paymentProof ? o.paymentProof.utr : null,
+          screenshot_url: o.paymentProof ? o.paymentProof.screenshotUrl : null,
+          cancel_reason: o.cancelReason || null,
+          cancel_note: o.cancelNote || null,
+          cancelled_at: o.cancelledAt || null,
+          created_at: o.createdAt || new Date().toISOString()
+        }));
+        const { error: oErr } = await client.from('n5_orders').upsert(ordersPayload, { onConflict: 'id' });
+        if (oErr) {
+          console.warn("Orders sync warning:", oErr);
+        } else {
+          orderCount = ordersPayload.length;
+        }
+      }
+
+      this.showToast(`✅ Cloud Synced! ${userCount} users & ${orderCount} orders in Supabase.`);
+    } catch (err) {
+      console.error("Cloud sync error:", err);
+      this.showToast(`Sync failed: ${err.message || 'Check database permissions'}`);
+    }
+  },
+
+  async syncUserToCloud(user) {
+    const client = this.getSupabase();
+    if (!client || !user) return;
+    try {
+      const payload = {
+        name: user.name,
+        email: user.email ? user.email.toLowerCase() : null,
+        phone: user.phone,
+        password: user.password,
+        verified: true,
+        last_login: new Date().toISOString()
+      };
+      await client.from('n5_users').upsert(payload, { onConflict: 'phone' });
+      console.log("Synced user to Supabase:", user.phone);
+    } catch (e) {
+      console.warn("Supabase user sync error:", e);
+    }
+  },
+
+  async syncOrderToCloud(order) {
+    const client = this.getSupabase();
+    if (!client || !order) return;
+    try {
+      const payload = {
+        id: order.id,
+        customer_name: order.customerName,
+        customer_email: order.customerEmail || null,
+        customer_phone: order.customerPhone,
+        address: order.address,
+        items: order.items || [],
+        subtotal: order.subtotal || 0,
+        shipping: order.shipping || 0,
+        total: order.total || 0,
+        status: order.status || 'Placed',
+        payment_method: order.paymentMethod || 'UPI QR (Verified)',
+        utr: order.paymentProof ? order.paymentProof.utr : null,
+        screenshot_url: order.paymentProof ? order.paymentProof.screenshotUrl : null,
+        cancel_reason: order.cancelReason || null,
+        cancel_note: order.cancelNote || null,
+        cancelled_at: order.cancelledAt || null,
+        created_at: order.createdAt || new Date().toISOString()
+      };
+      await client.from('n5_orders').upsert(payload, { onConflict: 'id' });
+      console.log("Synced order to Supabase:", order.id);
+    } catch (e) {
+      console.warn("Supabase order sync error:", e);
+    }
+  },
+
+  // Cancel Order Modal Handlers
+  openCancelOrderModal(orderId) {
+    const order = this.orders.find(o => o.id === orderId);
+    if (!order) return;
+    const label = document.getElementById('cancel-order-id-label');
+    const input = document.getElementById('cancel-order-id-input');
+    if (label) label.textContent = orderId;
+    if (input) input.value = orderId;
+    const modal = document.getElementById('cancel-order-modal');
+    if (modal) modal.classList.add('active');
+  },
+
+  closeCancelOrderModal() {
+    const modal = document.getElementById('cancel-order-modal');
+    if (modal) modal.classList.remove('active');
+  },
+
+  confirmOrderCancellation(e) {
+    e.preventDefault();
+    const orderId = document.getElementById('cancel-order-id-input')?.value;
+    const reason = document.getElementById('cancel-order-reason')?.value || 'Customer requested';
+    const note = document.getElementById('cancel-order-note')?.value.trim() || '';
+
+    const order = this.orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    order.status = 'Cancelled';
+    order.cancelledAt = new Date().toISOString();
+    order.cancelReason = reason;
+    order.cancelNote = note;
+
+    this.saveOrders();
+    this.syncOrderToCloud(order);
+    this.renderOrdersTab();
+    this.renderAdminOrders();
+    this.closeCancelOrderModal();
+    this.showToast(`Order #${orderId} has been cancelled.`);
+
+    // Pre-compose WhatsApp alert for the store owner
+    const cancelMsg = encodeURIComponent(
+      `*ORDER CANCELLED - N5 APPARELS*\n\n` +
+      `Order ID: #${order.id}\n` +
+      `Customer: ${order.customerName}\n` +
+      `Phone: ${order.customerPhone}\n` +
+      `Total: ₹${order.total}\n` +
+      `UTR: ${order.paymentProof ? order.paymentProof.utr : 'N/A'}\n` +
+      `Reason: ${reason}\n` +
+      (note ? `Customer Note: ${note}\n` : '') +
+      `Action Needed: Verify UTR and process UPI refund if received.\n` +
+      `Cancelled At: ${new Date().toLocaleString('en-IN')}`
+    );
+    window.open(`https://wa.me/${this.config.whatsappNumber}?text=${cancelMsg}`, '_blank');
   },
 
   handleCustomQrUpload(event) {
