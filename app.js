@@ -1706,7 +1706,7 @@ const Store = {
     }
   },
 
-  handleLoginSubmit(e) {
+  async handleLoginSubmit(e) {
     e.preventDefault();
     const email = document.getElementById('login-email').value.trim();
     const phone = document.getElementById('login-phone').value.trim();
@@ -1761,16 +1761,100 @@ const Store = {
       return;
     }
 
+    // 1. Authenticate with Supabase Auth (signInWithPassword)
+    const client = this.getSupabase();
+    if (client && client.auth) {
+      try {
+        const { data: authData, error: authErr } = await client.auth.signInWithPassword({
+          email: email,
+          password: password
+        });
+
+        if (!authErr && authData?.user) {
+          const sbUser = authData.user;
+          const userMeta = sbUser.user_metadata || {};
+          const userName = userMeta.full_name || userMeta.name || email.split('@')[0];
+          const userPhone = userMeta.phone || phone;
+
+          // Obtain current user's id, and use upsert to write data to profiles table
+          const { error: profileErr } = await client.from('profiles').upsert({
+            id: sbUser.id,
+            full_name: userName,
+            email: sbUser.email,
+            phone: userPhone,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+
+          if (profileErr) {
+            console.warn("Profiles upsert notice on login:", profileErr.message);
+          } else {
+            console.log("Successfully wrote user data to public.profiles via upsert:", sbUser.id);
+          }
+
+          const loggedInUser = {
+            id: sbUser.id,
+            name: userName,
+            email: sbUser.email,
+            phone: userPhone,
+            password: password
+          };
+
+          const existingIdx = this.registeredUsers.findIndex(u => u.phone === userPhone || u.email.toLowerCase() === email.toLowerCase());
+          if (existingIdx !== -1) {
+            this.registeredUsers[existingIdx] = { ...this.registeredUsers[existingIdx], ...loggedInUser };
+          } else {
+            this.registeredUsers.push(loggedInUser);
+          }
+          this.saveUsers();
+
+          this.currentUser = loggedInUser;
+          localStorage.setItem('n5_current_user', JSON.stringify(loggedInUser));
+          this.updateUserUI();
+          this.closeAuthModal();
+          this.showToast(`Welcome back, ${userName}! (Supabase Auth Verified)`);
+
+          if (this.pendingCheckout) {
+            this.pendingCheckout = false;
+            setTimeout(() => this.openCheckoutModal(), 300);
+          }
+          return;
+        }
+      } catch (sbErr) {
+        console.warn("Supabase auth signIn notice:", sbErr);
+      }
+    }
+
+    // 2. Fallback check for local credentials & auto-register to Supabase Auth
     const user = this.registeredUsers.find(u => 
       (u.email.toLowerCase() === email.toLowerCase() || u.phone === phone) && 
       u.password === password
     );
 
     if (user) {
-      // Update phone/email if needed
       user.email = email;
       user.phone = phone;
       this.saveUsers();
+
+      // In the background, auto-register to Supabase Auth if not already there
+      if (client && client.auth) {
+        client.auth.signUp({
+          email: email,
+          password: password,
+          options: { data: { full_name: user.name, phone: phone } }
+        }).then(res => {
+          if (res.data?.user?.id) {
+            user.id = res.data.user.id;
+            this.saveUsers();
+            client.from('profiles').upsert({
+              id: res.data.user.id,
+              full_name: user.name,
+              email: email,
+              phone: phone,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'id' });
+          }
+        }).catch(() => {});
+      }
 
       this.currentUser = user;
       localStorage.setItem('n5_current_user', JSON.stringify(user));
@@ -1822,7 +1906,7 @@ const Store = {
     this.showToast("Fresh 6-digit OTP code dispatched!");
   },
 
-  handleOtpVerify(e) {
+  async handleOtpVerify(e) {
     e.preventDefault();
     const entered = document.getElementById('otp-input-code').value.trim();
 
@@ -1833,7 +1917,38 @@ const Store = {
         return;
       }
 
+      let userId = null;
+      const client = this.getSupabase();
+      if (client && client.auth) {
+        try {
+          const { data: authData } = await client.auth.signUp({
+            email: pending.email,
+            password: pending.password,
+            options: {
+              data: {
+                full_name: pending.name,
+                phone: pending.phone
+              }
+            }
+          });
+          if (authData?.user?.id) {
+            userId = authData.user.id;
+            // Write to public.profiles via upsert
+            await client.from('profiles').upsert({
+              id: userId,
+              full_name: pending.name,
+              email: pending.email,
+              phone: pending.phone,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'id' });
+          }
+        } catch (sbErr) {
+          console.warn("Supabase signUp background notice:", sbErr);
+        }
+      }
+
       const newUser = {
+        id: userId,
         name: pending.name,
         email: pending.email,
         phone: pending.phone,
@@ -1849,7 +1964,7 @@ const Store = {
 
       this.updateUserUI();
       this.closeAuthModal();
-      this.showToast(`Welcome, ${newUser.name}! Account verified & logged in.`);
+      this.showToast(`Welcome, ${newUser.name}! Account verified & registered.`);
 
       if (this.pendingCheckout) {
         this.pendingCheckout = false;
@@ -2912,6 +3027,35 @@ const Store = {
     const client = this.getSupabase();
     if (!client || !user) return;
     try {
+      // 1. Write to public.profiles table using upsert if user has a Supabase Auth ID
+      let userId = user.id;
+      if (!userId && client.auth) {
+        try {
+          const { data } = await client.auth.getUser();
+          if (data?.user?.id) userId = data.user.id;
+        } catch (e) {}
+      }
+
+      if (userId) {
+        const profilePayload = {
+          id: userId,
+          full_name: user.name,
+          email: user.email ? user.email.toLowerCase() : null,
+          phone: user.phone,
+          shipping_address: user.address || null,
+          city: user.city || null,
+          pincode: user.pincode || null,
+          updated_at: new Date().toISOString()
+        };
+        const { error: profErr } = await client.from('profiles').upsert(profilePayload, { onConflict: 'id' });
+        if (profErr) {
+          console.warn("Profiles upsert notice:", profErr.message);
+        } else {
+          console.log("Profiles table upserted successfully for user:", userId);
+        }
+      }
+
+      // 2. Also keep n5_users table synced for standalone lookups
       const payload = {
         name: user.name,
         email: user.email ? user.email.toLowerCase() : null,
@@ -2921,7 +3065,7 @@ const Store = {
         last_login: new Date().toISOString()
       };
       await client.from('n5_users').upsert(payload, { onConflict: 'phone' });
-      console.log("Synced user to Supabase:", user.phone);
+      console.log("Synced user to Supabase n5_users:", user.phone);
     } catch (e) {
       console.warn("Supabase user sync error:", e);
     }

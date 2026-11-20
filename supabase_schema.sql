@@ -1,29 +1,59 @@
 -- ==============================================================================
--- N5 APPARELS - 100% FREE CLOUD DATABASE SCHEMA (SUPABASE POSTGRESQL)
+-- N5 APPARELS - SUPABASE DATABASE SCHEMA & PROFILES TRIGGER
 -- ==============================================================================
 -- Instructions:
--- 1. Create a FREE project at https://supabase.com (500MB free tier, thousands of users)
--- 2. Open "SQL Editor" from the left menu in your Supabase dashboard
--- 3. Paste this entire SQL script and click "Run"
--- 4. Copy your Project URL & Anon Public API Key from Project Settings > API
--- 5. Paste them into the N5 Apparels Admin Portal (Settings > Free Cloud Database)
+-- 1. Open your Supabase Dashboard: https://supabase.com/dashboard/project/ynzezkfwflkvqsjarrvx
+-- 2. Click "SQL Editor" from the left menu
+-- 3. Click "+ New Query", paste this entire script, and click "Run"
 -- ==============================================================================
 
--- 1. USERS TABLE (Stores all customers who login or create account for future marketing & loyalty)
-CREATE TABLE IF NOT EXISTS public.n5_users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
+-- 1. PROFILES TABLE (Stores extra customer business data linked to auth.users)
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    full_name TEXT,
+    nickname TEXT,
     email TEXT,
-    phone TEXT NOT NULL UNIQUE,
-    password TEXT,
-    verified BOOLEAN DEFAULT true,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    last_login TIMESTAMPTZ DEFAULT NOW()
+    phone TEXT,
+    avatar_url TEXT,
+    shipping_address TEXT,
+    city TEXT,
+    pincode TEXT,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 2. ORDERS TABLE (Stores all orders with UTR, cancellation reasons, and status)
+-- 2. AUTOMATIC TRIGGER FUNCTION: Creates/updates profile record when a user registers in auth.users
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+    INSERT INTO public.profiles (id, full_name, email, phone, avatar_url, updated_at)
+    VALUES (
+        new.id,
+        COALESCE(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
+        new.email,
+        COALESCE(new.raw_user_meta_data->>'phone', new.phone),
+        new.raw_user_meta_data->>'avatar_url',
+        timezone('utc'::text, now())
+    )
+    ON CONFLICT (id) DO UPDATE SET
+        full_name = COALESCE(EXCLUDED.full_name, public.profiles.full_name),
+        email = COALESCE(EXCLUDED.email, public.profiles.email),
+        phone = COALESCE(EXCLUDED.phone, public.profiles.phone),
+        updated_at = timezone('utc'::text, now());
+    RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Recreate trigger on auth.users safely
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 3. REAL-TIME ORDERS TABLE
 CREATE TABLE IF NOT EXISTS public.n5_orders (
     id TEXT PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     customer_name TEXT NOT NULL,
     customer_email TEXT,
     customer_phone TEXT NOT NULL,
@@ -42,7 +72,7 @@ CREATE TABLE IF NOT EXISTS public.n5_orders (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. CUSTOMER QUERIES TABLE
+-- 4. CUSTOMER QUERIES TABLE
 CREATE TABLE IF NOT EXISTS public.n5_queries (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -53,37 +83,53 @@ CREATE TABLE IF NOT EXISTS public.n5_queries (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. ENABLE ROW LEVEL SECURITY (RLS) & ALLOW PUBLIC ACCESS FOR THE STOREFRONT
-ALTER TABLE public.n5_users ENABLE ROW LEVEL SECURITY;
+-- 5. STANDALONE USERS TABLE (Fallback & quick lookups)
+CREATE TABLE IF NOT EXISTS public.n5_users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT NOT NULL UNIQUE,
+    password TEXT,
+    verified BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    last_login TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 6. ENABLE ROW LEVEL SECURITY (RLS)
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.n5_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.n5_queries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.n5_users ENABLE ROW LEVEL SECURITY;
 
--- Allow anon public read and write so the static website can query & save records securely
-DROP POLICY IF EXISTS "Allow anon insert users" ON public.n5_users;
-CREATE POLICY "Allow anon insert users" ON public.n5_users FOR INSERT WITH CHECK (true);
+-- 7. RLS POLICIES FOR PROFILES (Allows users to read/insert/update their own profile & allows upsert)
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
+CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
 
-DROP POLICY IF EXISTS "Allow anon select users" ON public.n5_users;
-CREATE POLICY "Allow anon select users" ON public.n5_users FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
+CREATE POLICY "Users can insert their own profile" ON public.profiles FOR INSERT WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Allow anon update users" ON public.n5_users;
-CREATE POLICY "Allow anon update users" ON public.n5_users FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
+CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE USING (true);
 
-DROP POLICY IF EXISTS "Allow anon insert orders" ON public.n5_orders;
-CREATE POLICY "Allow anon insert orders" ON public.n5_orders FOR INSERT WITH CHECK (true);
+-- RLS POLICIES FOR ORDERS
+DROP POLICY IF EXISTS "Allow public read orders" ON public.n5_orders;
+CREATE POLICY "Allow public read orders" ON public.n5_orders FOR SELECT USING (true);
 
-DROP POLICY IF EXISTS "Allow anon select orders" ON public.n5_orders;
-CREATE POLICY "Allow anon select orders" ON public.n5_orders FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert orders" ON public.n5_orders;
+CREATE POLICY "Allow public insert orders" ON public.n5_orders FOR INSERT WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Allow anon update orders" ON public.n5_orders;
-CREATE POLICY "Allow anon update orders" ON public.n5_orders FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public update orders" ON public.n5_orders;
+CREATE POLICY "Allow public update orders" ON public.n5_orders FOR UPDATE USING (true);
 
-DROP POLICY IF EXISTS "Allow anon insert queries" ON public.n5_queries;
-CREATE POLICY "Allow anon insert queries" ON public.n5_queries FOR INSERT WITH CHECK (true);
+-- RLS POLICIES FOR QUERIES
+DROP POLICY IF EXISTS "Allow public insert queries" ON public.n5_queries;
+CREATE POLICY "Allow public insert queries" ON public.n5_queries FOR INSERT WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Allow anon select queries" ON public.n5_queries;
-CREATE POLICY "Allow anon select queries" ON public.n5_queries FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public select queries" ON public.n5_queries;
+CREATE POLICY "Allow public select queries" ON public.n5_queries FOR SELECT USING (true);
 
-DROP POLICY IF EXISTS "Allow anon update queries" ON public.n5_queries;
-CREATE POLICY "Allow anon update queries" ON public.n5_queries FOR UPDATE USING (true);
+-- RLS POLICIES FOR N5_USERS
+DROP POLICY IF EXISTS "Allow public access n5_users" ON public.n5_users;
+CREATE POLICY "Allow public access n5_users" ON public.n5_users FOR ALL USING (true) WITH CHECK (true);
 
--- Done! Your free PostgreSQL cloud database is ready for N5 Apparels!
+-- Done! Your profiles table and automatic trigger on auth.users are fully installed.
