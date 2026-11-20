@@ -109,7 +109,12 @@ const Store = {
     // Load Current User Session
     const savedUser = localStorage.getItem('n5_current_user');
     if (savedUser) {
-      try { this.currentUser = JSON.parse(savedUser); } catch (e) { this.currentUser = null; }
+      try { 
+        this.currentUser = JSON.parse(savedUser);
+        this.loadCustomerOrdersAndProfile(this.currentUser);
+      } catch (e) { 
+        this.currentUser = null; 
+      }
     }
 
     // Load Admin Session
@@ -819,12 +824,16 @@ const Store = {
     const phoneInput = document.getElementById('checkout-phone');
     const emailInput = document.getElementById('checkout-email');
     const addressInput = document.getElementById('checkout-address');
+    const cityInput = document.getElementById('checkout-city');
+    const pincodeInput = document.getElementById('checkout-pincode');
 
     if (this.currentUser) {
       if (nameInput) nameInput.value = this.currentUser.name || '';
       if (phoneInput) phoneInput.value = this.currentUser.phone || '';
       if (emailInput) emailInput.value = this.currentUser.email || '';
       if (addressInput && this.currentUser.address) addressInput.value = this.currentUser.address;
+      if (cityInput && this.currentUser.city) cityInput.value = this.currentUser.city;
+      if (pincodeInput && this.currentUser.pincode) pincodeInput.value = this.currentUser.pincode;
     }
 
     const orderId = `N5-${Math.floor(10000 + Math.random() * 90000)}`;
@@ -1108,6 +1117,15 @@ const Store = {
       this.saveOrders();
       this.syncOrderToCloud(newOrder);
 
+      // Persist customer shipping details in profile & cloud
+      if (this.currentUser) {
+        this.currentUser.address = address;
+        this.currentUser.city = city;
+        this.currentUser.pincode = pincode;
+        localStorage.setItem('n5_current_user', JSON.stringify(this.currentUser));
+        this.syncUserToCloud(this.currentUser);
+      }
+
       // Clear cart
       this.cart = [];
       this.saveCart();
@@ -1347,23 +1365,94 @@ const Store = {
     if (!container) return;
 
     let ordersToShow = this.orders;
+    let isCustomerView = false;
+
     if (this.currentUser && !this.isAdmin) {
-      const userOrders = this.orders.filter(o => 
-        o.customerPhone === this.currentUser.phone || 
-        (o.customerEmail && this.currentUser.email && o.customerEmail.toLowerCase() === this.currentUser.email.toLowerCase())
-      );
+      isCustomerView = true;
+      const cleanPhone = (this.currentUser.phone || '').replace(/\D/g, '').slice(-10);
+      const userOrders = this.orders.filter(o => {
+        const orderPhone = (o.customerPhone || '').replace(/\D/g, '').slice(-10);
+        const orderEmail = (o.customerEmail || '').toLowerCase().trim();
+        const userEmail = (this.currentUser.email || '').toLowerCase().trim();
+        return (cleanPhone && orderPhone && orderPhone === cleanPhone) ||
+               (userEmail && orderEmail && orderEmail === userEmail);
+      });
       ordersToShow = userOrders;
     }
 
+    if (!isCustomerView) {
+      // Guest or search mode
+      if (ordersToShow.length === 0) {
+        container.innerHTML = `
+          <div class="mb-6 p-4 sm:p-5 bg-amber-50/90 border border-amber-200/80 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 text-sm">
+                <i class="fa-solid fa-user-lock"></i>
+              </div>
+              <div class="text-xs">
+                <span class="font-bold text-neutral-900">Want to see all your past orders automatically?</span>
+                <p class="text-neutral-600">Sign in with your phone or email to view your personal order history and live delivery tracking.</p>
+              </div>
+            </div>
+            <button onclick="Store.openAuthModal('login')" class="px-4 py-2 bg-neutral-900 hover:bg-black text-white text-xs font-bold rounded-xl whitespace-nowrap shadow-sm">
+              Sign In
+            </button>
+          </div>
+          <div class="bg-white rounded-3xl p-10 sm:p-12 text-center border border-neutral-200 shadow-sm max-w-lg mx-auto">
+            <div class="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4 text-neutral-400">
+              <i class="fa-solid fa-magnifying-glass text-2xl"></i>
+            </div>
+            <h3 class="text-lg font-bold text-neutral-900 mb-1">Track Your Order</h3>
+            <p class="text-xs text-neutral-500 mb-6 max-w-sm mx-auto leading-relaxed">
+              Enter your Order ID (from invoice) or 10-digit mobile number in the search bar above to view live package status.
+            </p>
+            <button onclick="Store.switchTab('clothes')" class="px-6 py-2.5 bg-neutral-900 text-white rounded-xl text-xs font-bold hover:bg-black transition-all shadow-sm">
+              Explore Collection
+            </button>
+          </div>
+        `;
+        return;
+      }
+      container.innerHTML = ordersToShow.map(order => this.renderOrderTrackingCard(order)).join('');
+      return;
+    }
+
+    // Logged in customer view with live cloud sync
+    const customerHeader = `
+      <div class="mb-6 p-4 sm:p-5 bg-gradient-to-r from-neutral-950 via-neutral-900 to-neutral-800 text-white rounded-3xl border border-neutral-700/60 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-3.5">
+          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-[#dfc07b] to-[#b8934a] text-neutral-950 font-black flex items-center justify-center text-base shadow-md">
+            ${this.currentUser.name.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <div class="text-[10px] font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-circle-check text-emerald-400"></i> Verified N5 Customer
+            </div>
+            <h3 class="text-sm sm:text-base font-bold text-white">${this.currentUser.name} • +91 ${this.currentUser.phone}</h3>
+            <p class="text-[11px] text-neutral-400">${this.currentUser.email || 'Mobile Account'} | Synced with N5 Cloud</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-3.5 py-1.5 bg-white/10 rounded-full text-xs font-bold text-amber-200 border border-white/10">
+            ${ordersToShow.length} Past Order${ordersToShow.length === 1 ? '' : 's'}
+          </span>
+          <button onclick="Store.loadCustomerOrdersAndProfile(Store.currentUser); Store.showToast('Refreshing your orders from cloud...')" 
+                  class="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5" title="Refresh Orders">
+            <i class="fa-solid fa-arrows-rotate text-xs"></i> Sync
+          </button>
+        </div>
+      </div>
+    `;
+
     if (ordersToShow.length === 0) {
-      container.innerHTML = `
+      container.innerHTML = customerHeader + `
         <div class="bg-white rounded-3xl p-10 sm:p-12 text-center border border-neutral-200 shadow-sm max-w-lg mx-auto">
           <div class="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4 text-neutral-400">
             <i class="fa-solid fa-box-open text-2xl"></i>
           </div>
           <h3 class="text-lg font-bold text-neutral-900 mb-1">No Orders Placed Yet</h3>
           <p class="text-xs text-neutral-500 mb-6 max-w-sm mx-auto leading-relaxed">
-            ${this.currentUser ? `Hi ${this.currentUser.name}, you haven't placed any orders yet. Once you place an order, its live tracking status will appear here in real-time.` : 'Enter your Order ID or phone number in the search bar above, or browse our collection to place your order.'}
+            Hi ${this.currentUser.name}, you haven't placed any orders yet. Once you place an order, its live tracking status and package timeline will appear here in real-time.
           </p>
           <button onclick="Store.switchTab('clothes')" class="px-6 py-2.5 bg-neutral-900 text-white rounded-xl text-xs font-bold hover:bg-black transition-all shadow-sm">
             Explore Collection & Order Now
@@ -1373,7 +1462,7 @@ const Store = {
       return;
     }
 
-    container.innerHTML = ordersToShow.map(order => this.renderOrderTrackingCard(order)).join('');
+    container.innerHTML = customerHeader + ordersToShow.map(order => this.renderOrderTrackingCard(order)).join('');
   },
 
   searchOrderById(customId = null) {
@@ -1683,29 +1772,51 @@ const Store = {
     }
 
     const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    window._pendingUserRegistration = { name, email, phone, password, otp: generatedOtp };
+    window._pendingUserRegistration = { name, email, phone, password, otp: generatedOtp, timestamp: Date.now() };
     window._currentOtpContext = 'signup';
+
+    const cleanPhone = phone.replace(/\D/g, '');
+    const waMsg = encodeURIComponent(
+      `*N5 APPARELS - SECURITY VERIFICATION*\n\n` +
+      `Hello ${name},\n` +
+      `Your confidential 6-digit verification code is: *${generatedOtp}*\n\n` +
+      `Valid for 5 minutes. Enter this code on the website to activate your account.\n` +
+      `Do NOT share this code with anyone.\n` +
+      `Store: N5 Apparels, Akbar Plaza, Malakpet, Hyderabad.`
+    );
+    const waLink = `https://api.whatsapp.com/send?phone=91${cleanPhone}&text=${waMsg}`;
+
+    try {
+      window.open(waLink, '_blank');
+    } catch (err) {}
 
     this.setAuthMode('otp');
     const otpBanner = document.getElementById('simulated-otp-banner');
     if (otpBanner) {
       otpBanner.innerHTML = `
-        <div class="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-900 mb-3 flex items-center justify-between">
-          <div>
-            <div class="font-bold flex items-center gap-1.5 text-neutral-900">
-              <i class="fa-solid fa-shield-halved text-amber-700"></i> N5 SMS & Email Alert
-            </div>
-            <div class="text-xs text-neutral-800 mt-0.5">
-              Your 6-Digit OTP is <span class="font-mono font-black text-sm text-amber-900 tracking-wider">${generatedOtp}</span>
-            </div>
-            <div class="text-[10px] text-neutral-500">Sent to +91 ${phone} & ${email}</div>
+        <div class="bg-gradient-to-br from-emerald-500/10 via-emerald-50 to-white border border-emerald-300 rounded-2xl p-4 text-center mb-3">
+          <div class="w-11 h-11 bg-emerald-600 text-white rounded-full flex items-center justify-center mx-auto mb-2 text-lg shadow-sm">
+            <i class="fa-brands fa-whatsapp"></i>
           </div>
-          <button type="button" onclick="Store.autoFillOtp('${generatedOtp}')" class="bg-amber-700 hover:bg-amber-800 text-white font-bold px-2.5 py-1 rounded text-[10px] transition-colors">
-            Auto-fill
-          </button>
+          <h4 class="text-xs font-bold text-neutral-900 uppercase tracking-wider">
+            Confidential OTP Sent to WhatsApp
+          </h4>
+          <p class="text-[11px] text-neutral-600 mt-1 max-w-xs mx-auto leading-relaxed">
+            A confidential 6-digit verification code was dispatched to your WhatsApp on <b>+91 ${phone}</b>.
+          </p>
+          <div class="mt-3">
+            <a href="${waLink}" target="_blank" rel="noopener noreferrer"
+               class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm">
+              <i class="fa-brands fa-whatsapp text-sm"></i> Open WhatsApp to View OTP
+            </a>
+          </div>
+          <p class="text-[10px] text-neutral-400 mt-2">
+            <i class="fa-solid fa-lock text-[9px] mr-1"></i> Private & secure. Code is not shown on this website.
+          </p>
         </div>
       `;
     }
+    this.showToast(`Verification code sent to WhatsApp on +91 ${phone}`);
   },
 
   async handleLoginSubmit(e) {
@@ -1724,35 +1835,55 @@ const Store = {
     }
 
     if (this.userLoginType === 'otp') {
-      // 1-Click OTP Login
+      // 1-Click WhatsApp OTP Login
       const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
       const existingUser = this.registeredUsers.find(u => u.phone === phone || u.email.toLowerCase() === email.toLowerCase());
       const userName = existingUser ? existingUser.name : email.split('@')[0];
 
-      window._pendingLoginOtp = { email, phone, otp: generatedOtp, name: userName };
+      window._pendingLoginOtp = { email, phone, otp: generatedOtp, name: userName, timestamp: Date.now() };
       window._currentOtpContext = 'login';
+
+      const cleanPhone = phone.replace(/\D/g, '');
+      const waMsg = encodeURIComponent(
+        `*N5 APPARELS - ONE-TIME LOGIN OTP*\n\n` +
+        `Hello ${userName},\n` +
+        `Your confidential 6-digit login code is: *${generatedOtp}*\n\n` +
+        `Valid for 5 minutes. Enter this code to securely access your N5 account.\n` +
+        `Store: N5 Apparels, Akbar Plaza, Malakpet, Hyderabad.`
+      );
+      const waLink = `https://api.whatsapp.com/send?phone=91${cleanPhone}&text=${waMsg}`;
+
+      try {
+        window.open(waLink, '_blank');
+      } catch (err) {}
 
       this.setAuthMode('otp');
       const otpBanner = document.getElementById('simulated-otp-banner');
       if (otpBanner) {
         otpBanner.innerHTML = `
-          <div class="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-900 mb-3 flex items-center justify-between">
-            <div>
-              <div class="font-bold flex items-center gap-1.5 text-neutral-900">
-                <i class="fa-solid fa-shield-halved text-amber-700"></i> N5 Login Security Alert
-              </div>
-              <div class="text-xs text-neutral-800 mt-0.5">
-                One-Time Login OTP is <span class="font-mono font-black text-sm text-amber-900 tracking-wider">${generatedOtp}</span>
-              </div>
-              <div class="text-[10px] text-neutral-500">Dispatched to +91 ${phone} & ${email}</div>
+          <div class="bg-gradient-to-br from-emerald-500/10 via-emerald-50 to-white border border-emerald-300 rounded-2xl p-4 text-center mb-3">
+            <div class="w-11 h-11 bg-emerald-600 text-white rounded-full flex items-center justify-center mx-auto mb-2 text-lg shadow-sm">
+              <i class="fa-brands fa-whatsapp"></i>
             </div>
-            <button type="button" onclick="Store.autoFillOtp('${generatedOtp}')" class="bg-amber-700 hover:bg-amber-800 text-white font-bold px-2.5 py-1 rounded text-[10px] transition-colors">
-              Auto-fill
-            </button>
+            <h4 class="text-xs font-bold text-neutral-900 uppercase tracking-wider">
+              Login OTP Sent to WhatsApp
+            </h4>
+            <p class="text-[11px] text-neutral-600 mt-1 max-w-xs mx-auto leading-relaxed">
+              A confidential 6-digit one-time code was dispatched to your WhatsApp on <b>+91 ${phone}</b>.
+            </p>
+            <div class="mt-3">
+              <a href="${waLink}" target="_blank" rel="noopener noreferrer"
+                 class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm">
+                <i class="fa-brands fa-whatsapp text-sm"></i> Open WhatsApp to View OTP
+              </a>
+            </div>
+            <p class="text-[10px] text-neutral-400 mt-2">
+              <i class="fa-solid fa-lock text-[9px] mr-1"></i> Private & secure. Code is not shown on this website.
+            </p>
           </div>
         `;
       }
-      this.showToast(`Login OTP dispatched to +91 ${phone}`);
+      this.showToast(`Login OTP dispatched to WhatsApp on +91 ${phone}`);
       return;
     }
 
@@ -1811,6 +1942,7 @@ const Store = {
 
           this.currentUser = loggedInUser;
           localStorage.setItem('n5_current_user', JSON.stringify(loggedInUser));
+          await this.loadCustomerOrdersAndProfile(loggedInUser);
           this.updateUserUI();
           this.closeAuthModal();
           this.showToast(`Welcome back, ${userName}! (Supabase Auth Verified)`);
@@ -1861,6 +1993,7 @@ const Store = {
       this.currentUser = user;
       localStorage.setItem('n5_current_user', JSON.stringify(user));
       this.syncUserToCloud(user);
+      await this.loadCustomerOrdersAndProfile(user);
       this.updateUserUI();
       this.closeAuthModal();
       this.showToast(`Welcome back, ${user.name}!`);
@@ -1874,38 +2007,64 @@ const Store = {
     }
   },
 
-  autoFillOtp(code) {
-    const input = document.getElementById('otp-input-code');
-    if (input) input.value = code;
-  },
-
   resendUserOtp() {
     const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    let phone = '';
+    let name = 'Customer';
+
     if (window._currentOtpContext === 'signup' && window._pendingUserRegistration) {
       window._pendingUserRegistration.otp = generatedOtp;
+      phone = window._pendingUserRegistration.phone;
+      name = window._pendingUserRegistration.name;
     } else if (window._pendingLoginOtp) {
       window._pendingLoginOtp.otp = generatedOtp;
+      phone = window._pendingLoginOtp.phone;
+      name = window._pendingLoginOtp.name || 'Customer';
     }
+
+    if (!phone) {
+      this.showToast("No active OTP session found. Please sign in again.");
+      this.setAuthMode('login');
+      return;
+    }
+
+    const cleanPhone = phone.replace(/\D/g, '');
+    const waMsg = encodeURIComponent(
+      `*N5 APPARELS - FRESH VERIFICATION CODE*\n\n` +
+      `Hello ${name},\n` +
+      `Your fresh 6-digit OTP is: *${generatedOtp}*\n\n` +
+      `Valid for 5 minutes. Enter this code to proceed.\n` +
+      `Store: N5 Apparels, Akbar Plaza, Malakpet, Hyderabad.`
+    );
+    const waLink = `https://api.whatsapp.com/send?phone=91${cleanPhone}&text=${waMsg}`;
+
+    try {
+      window.open(waLink, '_blank');
+    } catch (err) {}
 
     const otpBanner = document.getElementById('simulated-otp-banner');
     if (otpBanner) {
       otpBanner.innerHTML = `
-        <div class="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-900 mb-3 flex items-center justify-between">
-          <div>
-            <div class="font-bold flex items-center gap-1.5 text-neutral-900">
-              <i class="fa-solid fa-shield-halved text-amber-700"></i> New Security OTP Dispatched
-            </div>
-            <div class="text-xs text-neutral-800 mt-0.5">
-              Fresh 6-Digit OTP is <span class="font-mono font-black text-sm text-amber-900 tracking-wider">${generatedOtp}</span>
-            </div>
+        <div class="bg-gradient-to-br from-emerald-500/10 via-emerald-50 to-white border border-emerald-300 rounded-2xl p-4 text-center mb-3">
+          <div class="w-11 h-11 bg-emerald-600 text-white rounded-full flex items-center justify-center mx-auto mb-2 text-lg shadow-sm">
+            <i class="fa-brands fa-whatsapp"></i>
           </div>
-          <button type="button" onclick="Store.autoFillOtp('${generatedOtp}')" class="bg-amber-700 hover:bg-amber-800 text-white font-bold px-2.5 py-1 rounded text-[10px] transition-colors">
-            Auto-fill
-          </button>
+          <h4 class="text-xs font-bold text-neutral-900 uppercase tracking-wider">
+            Fresh OTP Sent to WhatsApp
+          </h4>
+          <p class="text-[11px] text-neutral-600 mt-1 max-w-xs mx-auto leading-relaxed">
+            A new confidential 6-digit verification code was dispatched to WhatsApp on <b>+91 ${phone}</b>.
+          </p>
+          <div class="mt-3">
+            <a href="${waLink}" target="_blank" rel="noopener noreferrer"
+               class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm">
+              <i class="fa-brands fa-whatsapp text-sm"></i> Open WhatsApp to View OTP
+            </a>
+          </div>
         </div>
       `;
     }
-    this.showToast("Fresh 6-digit OTP code dispatched!");
+    this.showToast(`Fresh OTP dispatched to WhatsApp on +91 ${phone}`);
   },
 
   async handleOtpVerify(e) {
@@ -1915,7 +2074,7 @@ const Store = {
     if (window._currentOtpContext === 'signup') {
       const pending = window._pendingUserRegistration;
       if (!pending || entered !== pending.otp) {
-        this.showToast("Invalid verification code. Please check SMS/Email OTP.");
+        this.showToast("Invalid verification code. Please check WhatsApp for your OTP.");
         return;
       }
 
@@ -1963,6 +2122,7 @@ const Store = {
       this.currentUser = newUser;
       localStorage.setItem('n5_current_user', JSON.stringify(newUser));
       this.syncUserToCloud(newUser);
+      await this.loadCustomerOrdersAndProfile(newUser);
 
       this.updateUserUI();
       this.closeAuthModal();
@@ -1976,7 +2136,7 @@ const Store = {
       // Login OTP verification
       const pending = window._pendingLoginOtp;
       if (!pending || entered !== pending.otp) {
-        this.showToast("Invalid login OTP code.");
+        this.showToast("Invalid login OTP code. Please check WhatsApp.");
         return;
       }
 
@@ -1996,6 +2156,7 @@ const Store = {
       this.currentUser = user;
       localStorage.setItem('n5_current_user', JSON.stringify(user));
       this.syncUserToCloud(user);
+      await this.loadCustomerOrdersAndProfile(user);
 
       this.updateUserUI();
       this.closeAuthModal();
@@ -2136,23 +2297,41 @@ const Store = {
     const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
     this.adminRecoveryOtp = generatedOtp;
 
+    const cleanPhone = phone.replace(/\D/g, '');
+    const waMsg = encodeURIComponent(
+      `*N5 APPARELS - ADMIN OWNER RECOVERY PIN*\n\n` +
+      `Owner Recovery PIN: *${generatedOtp}*\n\n` +
+      `Use this confidential 6-digit PIN to securely unlock the N5 Owner Dashboard.\n` +
+      `Store: Akbar Plaza, Beside Kolhapuri Footwear, Malakpet.`
+    );
+    const waLink = `https://api.whatsapp.com/send?phone=91${cleanPhone}&text=${waMsg}`;
+
+    try {
+      window.open(waLink, '_blank');
+    } catch (e) {}
+
     const banner = document.getElementById('admin-simulated-otp-banner');
     if (banner) {
       banner.innerHTML = `
-        <div class="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-900 mb-3 flex items-center justify-between">
-          <div>
-            <div class="font-bold flex items-center gap-1.5 text-neutral-900">
-              <i class="fa-solid fa-shield-halved text-amber-700"></i> N5 Admin Security Alert
-            </div>
-            <div class="text-xs text-neutral-800 mt-0.5">
-              Recovery OTP is <span class="font-mono font-black text-sm text-amber-900 tracking-wider">${generatedOtp}</span>
-            </div>
-            <div class="text-[10px] text-neutral-500">Sent to verified phone +91 ${phone}</div>
+        <div class="bg-gradient-to-br from-emerald-500/10 via-emerald-50 to-white border border-emerald-300 rounded-2xl p-4 text-center mb-3">
+          <div class="w-10 h-10 bg-emerald-600 text-white rounded-full flex items-center justify-center mx-auto mb-2 text-base shadow-sm">
+            <i class="fa-brands fa-whatsapp"></i>
           </div>
-          <button type="button" onclick="document.getElementById('admin-otp-code').value='${generatedOtp}'" 
-                  class="bg-amber-700 hover:bg-amber-800 text-white font-bold px-2.5 py-1 rounded-lg text-[10px] transition-colors">
-            Auto-fill
-          </button>
+          <h4 class="text-xs font-bold text-neutral-900 uppercase tracking-wider">
+            Admin Security PIN Sent to WhatsApp
+          </h4>
+          <p class="text-[11px] text-neutral-600 mt-1 max-w-xs mx-auto">
+            A confidential 6-digit unlock PIN was dispatched to verified owner WhatsApp <b>+91 ${phone}</b>.
+          </p>
+          <div class="mt-2.5">
+            <a href="${waLink}" target="_blank" rel="noopener noreferrer"
+               class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm">
+              <i class="fa-brands fa-whatsapp text-sm"></i> Open WhatsApp to View PIN
+            </a>
+          </div>
+          <p class="text-[10px] text-neutral-400 mt-2">
+            <i class="fa-solid fa-lock text-[9px] mr-1"></i> Private & secure. PIN is not shown on screen.
+          </p>
         </div>
       `;
     }
@@ -2160,20 +2339,20 @@ const Store = {
     const inputSection = document.getElementById('admin-otp-input-section');
     if (inputSection) inputSection.classList.remove('hidden');
 
-    this.showToast(`Security OTP sent to +91 ${phone}`);
+    this.showToast(`Owner PIN dispatched to WhatsApp on +91 ${phone}`);
   },
 
   verifyAdminOtp() {
     const entered = document.getElementById('admin-otp-code')?.value.trim();
     if (!this.adminRecoveryOtp || entered !== this.adminRecoveryOtp) {
-      this.showToast("Invalid verification code. Please check SMS OTP.");
+      this.showToast("Invalid verification PIN. Please check your WhatsApp message.");
       return;
     }
 
     this.isAdmin = true;
     sessionStorage.setItem('n5_admin_auth', 'true');
     this.renderAdminView();
-    this.showToast("Admin Portal Verified & Unlocked via Owner OTP!");
+    this.showToast("Admin Portal Verified & Unlocked via Owner WhatsApp PIN!");
   },
 
   adminLogout() {
@@ -3075,12 +3254,99 @@ const Store = {
     }
   },
 
+  async loadCustomerOrdersAndProfile(user) {
+    if (!user) return;
+    const client = this.getSupabase();
+    if (!client) return;
+
+    try {
+      // 1. Fetch saved profile (address, city, pincode) from public.profiles
+      let profQuery = client.from('profiles').select('*');
+      if (user.id) {
+        profQuery = profQuery.eq('id', user.id);
+      } else if (user.phone) {
+        profQuery = profQuery.eq('phone', user.phone);
+      } else if (user.email) {
+        profQuery = profQuery.eq('email', user.email.toLowerCase().trim());
+      }
+
+      const { data: prof } = await profQuery.maybeSingle();
+      if (prof) {
+        if (prof.shipping_address) user.address = prof.shipping_address;
+        if (prof.city) user.city = prof.city;
+        if (prof.pincode) user.pincode = prof.pincode;
+        if (prof.full_name && !user.name) user.name = prof.full_name;
+        this.currentUser = { ...user };
+        localStorage.setItem('n5_current_user', JSON.stringify(this.currentUser));
+      }
+
+      // 2. Fetch past orders for this customer from public.n5_orders
+      const orFilters = [];
+      if (user.phone) {
+        const cleanPhone = user.phone.replace(/\D/g, '').slice(-10);
+        orFilters.push(`customer_phone.ilike.%${cleanPhone}%`);
+      }
+      if (user.email) {
+        orFilters.push(`customer_email.eq.${user.email.toLowerCase().trim()}`);
+      }
+
+      if (orFilters.length > 0) {
+        const { data: cloudOrders, error: orderErr } = await client
+          .from('n5_orders')
+          .select('*')
+          .or(orFilters.join(','))
+          .order('created_at', { ascending: false });
+
+        if (!orderErr && Array.isArray(cloudOrders) && cloudOrders.length > 0) {
+          cloudOrders.forEach(co => {
+            const formatted = {
+              id: co.id,
+              customerName: co.customer_name,
+              customerEmail: co.customer_email,
+              customerPhone: co.customer_phone,
+              address: co.address,
+              items: co.items || [],
+              subtotal: Number(co.subtotal || 0),
+              shipping: Number(co.shipping || 0),
+              total: Number(co.total || 0),
+              status: co.status || 'Placed',
+              paymentMethod: co.payment_method || 'UPI QR (Verified)',
+              paymentProof: {
+                utr: co.utr,
+                screenshotUrl: co.screenshot_url,
+                verified: true,
+                verifiedAt: co.created_at
+              },
+              cancelReason: co.cancel_reason,
+              cancelNote: co.cancel_note,
+              cancelledAt: co.cancelled_at,
+              createdAt: co.created_at,
+              estimatedDelivery: "3-4 Business Days"
+            };
+            const idx = this.orders.findIndex(o => o.id === formatted.id);
+            if (idx !== -1) {
+              this.orders[idx] = formatted;
+            } else {
+              this.orders.unshift(formatted);
+            }
+          });
+          this.saveOrders();
+        }
+      }
+    } catch (e) {
+      console.warn("Could not load user cloud profile/orders:", e);
+    }
+
+    this.renderOrdersTab();
+  },
+
   async syncOrderToCloud(order) {
     const client = this.getSupabase();
     if (!client || !order) return;
     try {
       const payload = {
         id: order.id,
+        user_id: (this.currentUser && this.currentUser.id) ? this.currentUser.id : null,
         customer_name: order.customerName,
         customer_email: order.customerEmail || null,
         customer_phone: order.customerPhone,
