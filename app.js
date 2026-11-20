@@ -196,7 +196,8 @@ const Store = {
       }
     });
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Instant zero-jank scroll position reset on tab change
+    window.scrollTo(0, 0);
 
     if (tabName === 'clothes') {
       this.renderCategoryPills();
@@ -204,7 +205,7 @@ const Store = {
     } else if (tabName === 'contact') {
       setTimeout(() => {
         this.initLeafletMap();
-      }, 150);
+      }, 100);
     } else if (tabName === 'orders') {
       this.renderOrdersTab();
     } else if (tabName === 'admin') {
@@ -232,7 +233,7 @@ const Store = {
 
     container.innerHTML = categories.map(cat => `
       <button onclick="Store.setCategory('${cat.id}')"
-        class="px-5 py-2.5 rounded-full text-xs font-semibold tracking-wide transition-all duration-200 whitespace-nowrap ${
+        class="px-5 py-2.5 rounded-full text-xs font-semibold tracking-wide transition-colors duration-150 whitespace-nowrap ${
           this.activeCategory === cat.id
             ? 'bg-neutral-900 text-white shadow-md'
             : 'bg-white text-neutral-600 border border-neutral-200 hover:border-neutral-400 hover:text-black'
@@ -242,9 +243,13 @@ const Store = {
     `).join('');
   },
 
+  // Debounced search for instant, zero-lag typing
   handleSearchInput(query) {
-    this.activeSearchQuery = query.toLowerCase().trim();
-    this.renderProducts();
+    if (this._searchDebounceTimer) clearTimeout(this._searchDebounceTimer);
+    this._searchDebounceTimer = setTimeout(() => {
+      this.activeSearchQuery = query.toLowerCase().trim();
+      this.renderProducts();
+    }, 150);
   },
 
   handleSortChange(sortType) {
@@ -300,7 +305,7 @@ const Store = {
           <!-- Image Area on Pure White Studio Background -->
           <div class="relative overflow-hidden bg-white aspect-[4/5] cursor-pointer flex items-center justify-center p-3 border-b border-neutral-100" 
                onclick="Store.openProductModal('${p.id}')">
-            <img src="${p.image}" alt="${p.name}" class="img-zoom w-full h-full object-contain" 
+            <img src="${p.image}" alt="${p.name}" loading="lazy" decoding="async" class="img-zoom w-full h-full object-contain" 
                  onerror="this.src='https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=900&auto=format&fit=crop&q=85'"/>
             
             <!-- Brand Badge Top Left -->
@@ -393,13 +398,14 @@ const Store = {
       `;
     };
 
-    if (homeGrid) {
-      // Show curated 8 items on Home
+    // Render Home Grid only when relevant (avoids offscreen DOM thrashing)
+    if (homeGrid && (!this.activeTab || this.activeTab === 'home')) {
       const featured = this.products.slice(0, 8);
       homeGrid.innerHTML = featured.map(cardTemplate).join('');
     }
 
-    if (catalogGrid) {
+    // Render Catalog Grid only when relevant
+    if (catalogGrid && (!this.activeTab || this.activeTab === 'clothes')) {
       if (filtered.length === 0) {
         catalogGrid.innerHTML = `
           <div class="col-span-full py-20 text-center text-neutral-400">

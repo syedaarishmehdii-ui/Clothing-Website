@@ -261,7 +261,7 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <!-- 1. Shirts -->
           <div onclick="Store.setCategory('shirts')" class="group relative rounded-3xl overflow-hidden aspect-[4/5] bg-white cursor-pointer shadow-sm hover:shadow-2xl transition-all duration-300 border border-neutral-200 flex flex-col justify-end p-6">
-            <img src="assets/stock/real_shirts_polo_banana_levis.png" alt="Original Brand Shirts" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+            <img src="assets/stock/real_shirts_polo_banana_levis.png" alt="Original Brand Shirts" loading="lazy" decoding="async" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
             <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent"></div>
             <div class="relative z-10 text-white">
               <span class="text-[10px] uppercase font-bold tracking-wider text-amber-300">Ralph Lauren • Levi's • Snitch • Mufti</span>
@@ -275,7 +275,7 @@
 
           <!-- 2. T-Shirts -->
           <div onclick="Store.setCategory('tshirts')" class="group relative rounded-3xl overflow-hidden aspect-[4/5] bg-white cursor-pointer shadow-sm hover:shadow-2xl transition-all duration-300 border border-neutral-200 flex flex-col justify-end p-6">
-            <img src="assets/stock/real_shirts_uspa_flannel.png" alt="Original Brand T-Shirts" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+            <img src="assets/stock/real_shirts_uspa_flannel.png" alt="Original Brand T-Shirts" loading="lazy" decoding="async" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
             <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent"></div>
             <div class="relative z-10 text-white">
               <span class="text-[10px] uppercase font-bold tracking-wider text-amber-300">U.S. Polo Assn. • Essentials • Zara</span>
@@ -289,7 +289,7 @@
 
           <!-- 3. Jeans -->
           <div onclick="Store.setCategory('jeans')" class="group relative rounded-3xl overflow-hidden aspect-[4/5] bg-white cursor-pointer shadow-sm hover:shadow-2xl transition-all duration-300 border border-neutral-200 flex flex-col justify-end p-6">
-            <img src="assets/stock/real_pants_gstar_levis.png" alt="Original Brand Jeans" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+            <img src="assets/stock/real_pants_gstar_levis.png" alt="Original Brand Jeans" loading="lazy" decoding="async" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
             <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent"></div>
             <div class="relative z-10 text-white">
               <span class="text-[10px] uppercase font-bold tracking-wider text-amber-300">Levi's 501 • Big Star • G-Star Raw</span>
@@ -324,6 +324,7 @@
               <div class="relative rounded-2xl overflow-hidden aspect-[4/3] bg-neutral-900 shadow-md border border-neutral-200 group">
                 <img src="assets/store/store_outside_night.jpg" 
                      alt="N5 Apparels Akbar Plaza Storefront Night View" 
+                     loading="lazy" decoding="async"
                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                 <div class="absolute bottom-2 left-2 bg-black/75 backdrop-blur-sm text-white px-2.5 py-1 rounded-lg text-[10px] font-bold">
                   📍 Outside Facade (Standee Board)
@@ -334,6 +335,7 @@
               <div class="relative rounded-2xl overflow-hidden aspect-[4/3] bg-neutral-900 shadow-md border border-neutral-200 group">
                 <img src="assets/store/store_outside_day.png" 
                      alt="N5 Apparels Store Entrance and Mannequins" 
+                     loading="lazy" decoding="async"
                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                 <div class="absolute bottom-2 left-2 bg-black/75 backdrop-blur-sm text-white px-2.5 py-1 rounded-lg text-[10px] font-bold">
                   👔 Store Entrance & Mannequins
@@ -344,6 +346,7 @@
               <div class="relative rounded-2xl overflow-hidden aspect-[4/3] bg-neutral-900 shadow-md border border-neutral-200 group">
                 <img src="assets/store/store_inside_racks.jpg" 
                      alt="N5 Apparels Inside Double Racks of Shirts and Pants" 
+                     loading="lazy" decoding="async"
                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                 <div class="absolute bottom-2 left-2 bg-black/75 backdrop-blur-sm text-white px-2.5 py-1 rounded-lg text-[10px] font-bold">
                   🛍️ Inside Double Shirt & Pant Racks
@@ -354,6 +357,7 @@
               <div class="relative rounded-2xl overflow-hidden aspect-[4/3] bg-neutral-900 shadow-md border border-neutral-200 group">
                 <img src="assets/store/store_inside_aisle.jpg" 
                      alt="N5 Apparels Inside Fashion Display Aisle" 
+                     loading="lazy" decoding="async"
                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                 <div class="absolute bottom-2 left-2 bg-black/75 backdrop-blur-sm text-white px-2.5 py-1 rounded-lg text-[10px] font-bold">
                   ✨ Inside Boutique Aisle & Displays
@@ -612,7 +616,9 @@
             <!-- 1. Outside Night View -->
             <div class="relative rounded-xl overflow-hidden aspect-[4/3] bg-neutral-900 border border-neutral-200 group shadow-sm">
               <img src="assets/store/store_outside_night.jpg" 
-                   alt="N5 Apparels Storefront & Standee Night View" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                   alt="N5 Apparels Storefront & Standee Night View" 
+                   loading="lazy" decoding="async"
+                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
               <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
               <div class="absolute bottom-1.5 left-2 right-2 text-[10px] text-white font-bold">
                 🌙 Storefront Night View
@@ -622,7 +628,9 @@
             <!-- 2. Outside Day View -->
             <div class="relative rounded-xl overflow-hidden aspect-[4/3] bg-neutral-900 border border-neutral-200 group shadow-sm">
               <img src="assets/store/store_outside_day.png" 
-                   alt="Storefront Entrance with Mannequins" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                   alt="Storefront Entrance with Mannequins" 
+                   loading="lazy" decoding="async"
+                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
               <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
               <div class="absolute bottom-1.5 left-2 right-2 text-[10px] text-white font-bold">
                 ☀️ Entrance & Displays
@@ -632,7 +640,9 @@
             <!-- 3. Inside Double Racks -->
             <div class="relative rounded-xl overflow-hidden aspect-[4/3] bg-neutral-900 border border-neutral-200 group shadow-sm">
               <img src="assets/store/store_inside_racks.jpg" 
-                   alt="Inside Multi-Brand Apparel Double Racks" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                   alt="Inside Multi-Brand Apparel Double Racks" 
+                   loading="lazy" decoding="async"
+                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
               <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
               <div class="absolute bottom-1.5 left-2 right-2 text-[10px] text-white font-bold">
                 👕 Inside Double Racks
@@ -642,7 +652,9 @@
             <!-- 4. Inside Denim Shelves -->
             <div class="relative rounded-xl overflow-hidden aspect-[4/3] bg-neutral-900 border border-neutral-200 group shadow-sm">
               <img src="assets/store/store_inside_denim_shelves.jpg" 
-                   alt="Inside Denim & Jeans Section" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                   alt="Inside Denim & Jeans Section" 
+                   loading="lazy" decoding="async"
+                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
               <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
               <div class="absolute bottom-1.5 left-2 right-2 text-[10px] text-white font-bold">
                 👖 Premium Denim Shelves
@@ -652,7 +664,9 @@
             <!-- 5. Inside Boutique Aisle -->
             <div class="relative rounded-xl overflow-hidden aspect-[4/3] bg-neutral-900 border border-neutral-200 group shadow-sm">
               <img src="assets/store/store_inside_aisle.jpg" 
-                   alt="Inside Boutique Aisle" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                   alt="Inside Boutique Aisle" 
+                   loading="lazy" decoding="async"
+                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
               <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
               <div class="absolute bottom-1.5 left-2 right-2 text-[10px] text-white font-bold">
                 ✨ Interior Boutique Walkway
@@ -662,7 +676,9 @@
             <!-- 6. Inside Cashier Counter -->
             <div class="relative rounded-xl overflow-hidden aspect-[4/3] bg-neutral-900 border border-neutral-200 group shadow-sm">
               <img src="assets/store/store_inside_cashier.jpg" 
-                   alt="Inside Cashier Billing Counter" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                   alt="Inside Cashier Billing Counter" 
+                   loading="lazy" decoding="async"
+                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
               <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
               <div class="absolute bottom-1.5 left-2 right-2 text-[10px] text-white font-bold">
                 💳 Cashier & Customer Help

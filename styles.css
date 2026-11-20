@@ -95,19 +95,22 @@ button, a, input, select, textarea {
   letter-spacing: 0.14em;
 }
 
-/* Glassmorphism */
+/* Glassmorphism with lightweight performance-friendly blur */
 .glass-nav {
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(234, 232, 225, 0.85);
+  transform: translateZ(0);
 }
 
 .glass-card {
   background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--border-light);
   box-shadow: var(--shadow-subtle);
+  transform: translateZ(0);
 }
 
 /* Gold Accents & Badges */
@@ -135,7 +138,8 @@ button, a, input, select, textarea {
 .btn-luxury-dark {
   background-color: #121212;
   color: #ffffff;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, background-color 0.2s ease;
+  transform: translateZ(0);
 }
 .btn-luxury-dark:hover {
   background-color: #242424;
@@ -146,8 +150,9 @@ button, a, input, select, textarea {
 .btn-luxury-gold {
   background: var(--gold-gradient);
   color: #ffffff;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, filter 0.2s ease;
   box-shadow: 0 4px 16px rgba(184, 147, 74, 0.25);
+  transform: translateZ(0);
 }
 .btn-luxury-gold:hover {
   filter: brightness(1.06);
@@ -155,9 +160,13 @@ button, a, input, select, textarea {
   box-shadow: 0 8px 25px rgba(184, 147, 74, 0.35);
 }
 
-/* Pure Studio White Background Product Cards */
+/* Pure Studio White Background Product Cards with Hardware Acceleration */
 .product-card {
-  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
   background: #ffffff;
   border: 1px solid #eae8e1;
   border-radius: var(--radius-lg);
@@ -165,17 +174,38 @@ button, a, input, select, textarea {
 }
 
 .product-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-3px);
   box-shadow: var(--shadow-hover);
   border-color: #d8d4c9;
 }
 
 .product-card .img-zoom {
-  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   background-color: #ffffff;
 }
 .product-card:hover .img-zoom {
-  transform: scale(1.04);
+  transform: scale(1.03);
+}
+
+/* Touchscreens: Disable hover transitions to prevent finger scrolling jank */
+@media (hover: none) {
+  .product-card:hover {
+    transform: none !important;
+    box-shadow: var(--shadow-subtle) !important;
+  }
+  .product-card:hover .img-zoom {
+    transform: none !important;
+  }
+}
+
+/* Offscreen Content Visibility Optimization */
+.perf-contain {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 450px;
 }
 
 /* Tabs & Navigation Dropdown */
@@ -307,11 +337,12 @@ button, a, input, select, textarea {
   background-color: #ffffff;
 }
 
-/* Drawer & Modal Transitions */
+/* Drawer & Modal Hardware-Accelerated Transitions */
 .modal-overlay {
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.2s ease;
+  will-change: opacity;
 }
 .modal-overlay.active {
   opacity: 1;
@@ -319,19 +350,21 @@ button, a, input, select, textarea {
 }
 
 .modal-content {
-  transform: scale(0.96) translateY(12px);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translate3d(0, 8px, 0) scale(0.98);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+  will-change: transform, opacity;
 }
 .modal-overlay.active .modal-content {
-  transform: scale(1) translateY(0);
+  transform: translate3d(0, 0, 0) scale(1);
 }
 
 .drawer-sidebar {
-  transform: translateX(100%);
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translate3d(100%, 0, 0);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
 }
 .drawer-sidebar.open {
-  transform: translateX(0);
+  transform: translate3d(0, 0, 0);
 }
 
 /* Custom Scrollbar */
