@@ -1,13 +1,12 @@
 -- ==============================================================================
--- N5 APPARELS - SUPABASE DATABASE SCHEMA & PROFILES TRIGGER
+-- N5 APPARELS - COMPLETE DATABASE SCHEMA, PROFILES & REAL-TIME ORDERS
 -- ==============================================================================
--- Instructions:
--- 1. Open your Supabase Dashboard: https://supabase.com/dashboard/project/ynzezkfwflkvqsjarrvx
--- 2. Click "SQL Editor" from the left menu
--- 3. Click "+ New Query", paste this entire script, and click "Run"
+-- Copy this ENTIRE file (from top to bottom) and paste into Supabase SQL Editor.
 -- ==============================================================================
 
--- 1. PROFILES TABLE (Stores extra customer business data linked to auth.users)
+-- ------------------------------------------------------------------------------
+-- 1. PUBLIC.PROFILES (Customer business profile linked to Supabase auth.users)
+-- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     full_name TEXT,
@@ -22,7 +21,19 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 2. AUTOMATIC TRIGGER FUNCTION: Creates/updates profile record when a user registers in auth.users
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+    DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
+    DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
+    DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
+END $$;
+
+CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "Users can insert their own profile" ON public.profiles FOR INSERT WITH CHECK (true);
+CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE USING (true);
+
+-- Trigger function to auto-create profile when user registers via Supabase Auth
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
@@ -44,13 +55,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Recreate trigger on auth.users safely
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- 3. REAL-TIME ORDERS TABLE
+
+-- ------------------------------------------------------------------------------
+-- 2. PUBLIC.N5_ORDERS (Real-time customer orders with UPI UTR verification)
+-- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.n5_orders (
     id TEXT PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -72,7 +85,22 @@ CREATE TABLE IF NOT EXISTS public.n5_orders (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. CUSTOMER QUERIES TABLE
+ALTER TABLE public.n5_orders ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+    DROP POLICY IF EXISTS "Allow public read orders" ON public.n5_orders;
+    DROP POLICY IF EXISTS "Allow public insert orders" ON public.n5_orders;
+    DROP POLICY IF EXISTS "Allow public update orders" ON public.n5_orders;
+END $$;
+
+CREATE POLICY "Allow public read orders" ON public.n5_orders FOR SELECT USING (true);
+CREATE POLICY "Allow public insert orders" ON public.n5_orders FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update orders" ON public.n5_orders FOR UPDATE USING (true);
+
+
+-- ------------------------------------------------------------------------------
+-- 3. PUBLIC.N5_QUERIES (Customer queries & inquiries)
+-- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.n5_queries (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -83,7 +111,22 @@ CREATE TABLE IF NOT EXISTS public.n5_queries (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. STANDALONE USERS TABLE (Fallback & quick lookups)
+ALTER TABLE public.n5_queries ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+    DROP POLICY IF EXISTS "Allow public insert queries" ON public.n5_queries;
+    DROP POLICY IF EXISTS "Allow public select queries" ON public.n5_queries;
+    DROP POLICY IF EXISTS "Allow public update queries" ON public.n5_queries;
+END $$;
+
+CREATE POLICY "Allow public insert queries" ON public.n5_queries FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public select queries" ON public.n5_queries FOR SELECT USING (true);
+CREATE POLICY "Allow public update queries" ON public.n5_queries FOR UPDATE USING (true);
+
+
+-- ------------------------------------------------------------------------------
+-- 4. PUBLIC.N5_USERS (Fallback standalone customer records)
+-- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.n5_users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
@@ -95,41 +138,14 @@ CREATE TABLE IF NOT EXISTS public.n5_users (
     last_login TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. ENABLE ROW LEVEL SECURITY (RLS)
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.n5_orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.n5_queries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.n5_users ENABLE ROW LEVEL SECURITY;
 
--- 7. RLS POLICIES FOR PROFILES (Allows users to read/insert/update their own profile & allows upsert)
-DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
-CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
+DO $$ BEGIN
+    DROP POLICY IF EXISTS "Allow public access n5_users" ON public.n5_users;
+END $$;
 
-DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
-CREATE POLICY "Users can insert their own profile" ON public.profiles FOR INSERT WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
-CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE USING (true);
-
--- RLS POLICIES FOR ORDERS
-DROP POLICY IF EXISTS "Allow public read orders" ON public.n5_orders;
-CREATE POLICY "Allow public read orders" ON public.n5_orders FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "Allow public insert orders" ON public.n5_orders;
-CREATE POLICY "Allow public insert orders" ON public.n5_orders FOR INSERT WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow public update orders" ON public.n5_orders;
-CREATE POLICY "Allow public update orders" ON public.n5_orders FOR UPDATE USING (true);
-
--- RLS POLICIES FOR QUERIES
-DROP POLICY IF EXISTS "Allow public insert queries" ON public.n5_queries;
-CREATE POLICY "Allow public insert queries" ON public.n5_queries FOR INSERT WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow public select queries" ON public.n5_queries;
-CREATE POLICY "Allow public select queries" ON public.n5_queries FOR SELECT USING (true);
-
--- RLS POLICIES FOR N5_USERS
-DROP POLICY IF EXISTS "Allow public access n5_users" ON public.n5_users;
 CREATE POLICY "Allow public access n5_users" ON public.n5_users FOR ALL USING (true) WITH CHECK (true);
 
--- Done! Your profiles table and automatic trigger on auth.users are fully installed.
+-- ==============================================================================
+-- SUCCESS: Tables, profiles, triggers, and RLS policies are now 100% active!
+-- ==============================================================================
