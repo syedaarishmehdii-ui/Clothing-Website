@@ -34,8 +34,8 @@ const Store = {
     ownerPhone: "9700663930",
     freeShippingAbove: 999,
     shippingFee: 99,
-    supabaseUrl: "",
-    supabaseKey: ""
+    supabaseUrl: "https://ynzezkfwflkvqsjarrvx.supabase.co",
+    supabaseKey: "sb_publishable_nlRYRIC6-AvbwI7U2TUDyQ_DXh4kHnV"
   },
   supabaseClient: null,
 
@@ -121,6 +121,12 @@ const Store = {
         if (this.config.adminPin === "1234" || !this.config.adminPassword) {
           this.config.adminPassword = "6309592896";
           this.config.adminPin = "6309592896";
+        }
+        if (!this.config.supabaseUrl) {
+          this.config.supabaseUrl = "https://ynzezkfwflkvqsjarrvx.supabase.co";
+        }
+        if (!this.config.supabaseKey) {
+          this.config.supabaseKey = "sb_publishable_nlRYRIC6-AvbwI7U2TUDyQ_DXh4kHnV";
         }
       } catch (e) {}
     }
@@ -2735,8 +2741,8 @@ const Store = {
     if (phoneInput) phoneInput.value = this.config.ownerPhone || '9700663930';
     if (freeInput) freeInput.value = this.config.freeShippingAbove ?? 999;
     if (feeInput) feeInput.value = this.config.shippingFee ?? 99;
-    if (supaUrlInput) supaUrlInput.value = this.config.supabaseUrl || '';
-    if (supaKeyInput) supaKeyInput.value = this.config.supabaseKey || '';
+    if (supaUrlInput) supaUrlInput.value = this.config.supabaseUrl || 'https://ynzezkfwflkvqsjarrvx.supabase.co';
+    if (supaKeyInput) supaKeyInput.value = this.config.supabaseKey || 'sb_publishable_nlRYRIC6-AvbwI7U2TUDyQ_DXh4kHnV';
 
     this.updateCloudDbStatusBadge();
   },
