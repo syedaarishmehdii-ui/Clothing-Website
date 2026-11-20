@@ -47,6 +47,8 @@ const Store = {
     this.updateCartBadge();
     this.updateUserUI();
     this.renderOrdersTab();
+    this.fetchCloudOrders();
+    this.setupSupabaseRealtime();
 
     // Check URL hash for direct tab navigation
     const hash = window.location.hash.replace('#', '').toLowerCase();
@@ -2194,6 +2196,7 @@ const Store = {
     if (loginGate) loginGate.classList.add('hidden');
     if (dashboard) dashboard.classList.remove('hidden');
 
+    this.fetchCloudOrders();
     this.renderAdminOrders();
     this.renderAdminProducts();
     this.renderAdminQueries();
@@ -2606,6 +2609,7 @@ const Store = {
     }
     this.saveOrders();
     this.syncOrderToCloud(order);
+    this.fetchCloudOrders();
     this.renderAdminOrders();
     this.renderOrdersTab();
     this.showToast(`Order #${orderId} marked as "${newStatus}"`);
@@ -3101,6 +3105,66 @@ const Store = {
     }
   },
 
+  async fetchCloudOrders() {
+    const client = this.getSupabase();
+    if (!client) return;
+    try {
+      const { data, error } = await client
+        .from('n5_orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        this.orders = data.map(o => ({
+          id: o.id,
+          customerName: o.customer_name,
+          customerEmail: o.customer_email,
+          customerPhone: o.customer_phone,
+          address: o.address,
+          items: Array.isArray(o.items) ? o.items : [],
+          subtotal: Number(o.subtotal) || 0,
+          shipping: Number(o.shipping) || 0,
+          total: Number(o.total) || 0,
+          status: o.status || 'Placed',
+          paymentMethod: o.payment_method || 'UPI QR (Verified)',
+          paymentProof: {
+            utr: o.utr || 'VERIFIED',
+            screenshotUrl: o.screenshot_url || null,
+            verified: true
+          },
+          cancelReason: o.cancel_reason,
+          cancelNote: o.cancel_note,
+          cancelledAt: o.cancelled_at,
+          createdAt: o.created_at
+        }));
+        this.saveOrders();
+        const ordersList = document.getElementById('admin-orders-list');
+        if (ordersList) this.renderAdminOrders();
+        const ordersTab = document.getElementById('orders-list-view');
+        if (ordersTab) this.renderOrdersTab();
+      }
+    } catch (err) {
+      console.warn("Could not fetch cloud orders from Supabase:", err);
+    }
+  },
+
+  setupSupabaseRealtime() {
+    const client = this.getSupabase();
+    if (!client || window._supabaseRealtimeActive) return;
+    try {
+      client
+        .channel('public:n5_orders')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'n5_orders' }, (payload) => {
+          console.log('Real-time database order change detected:', payload);
+          this.fetchCloudOrders();
+        })
+        .subscribe();
+      window._supabaseRealtimeActive = true;
+    } catch (e) {
+      console.warn("Real-time subscription notice:", e);
+    }
+  },
+
   // Cancel Order Modal Handlers
   openCancelOrderModal(orderId) {
     const order = this.orders.find(o => o.id === orderId);
@@ -3135,6 +3199,7 @@ const Store = {
     this.saveOrders();
     this.syncOrderToCloud(order);
     this.renderOrdersTab();
+    this.fetchCloudOrders();
     this.renderAdminOrders();
     this.closeCancelOrderModal();
     this.showToast(`Order #${orderId} has been cancelled.`);
