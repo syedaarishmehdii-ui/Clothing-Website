@@ -57,11 +57,6 @@ const Store = {
     } else {
       this.switchTab('home');
     }
-
-    // Seed realistic sample order with verified UTR if empty
-    if (this.orders.length === 0) {
-      this.seedSampleOrder();
-    }
   },
 
   loadState() {
@@ -84,10 +79,17 @@ const Store = {
       try { this.cart = JSON.parse(savedCart); } catch (e) { this.cart = []; }
     }
 
-    // Load Orders
+    // Load Orders (Strictly genuine customer orders only - purged of any legacy demo seeds)
     const savedOrders = localStorage.getItem('n5_orders');
     if (savedOrders) {
-      try { this.orders = JSON.parse(savedOrders); } catch (e) { this.orders = []; }
+      try { 
+        this.orders = JSON.parse(savedOrders).filter(o => o.id !== 'N5-84291' && o.customerEmail !== 'irfan.demo@gmail.com');
+        this.saveOrders();
+      } catch (e) { 
+        this.orders = []; 
+      }
+    } else {
+      this.orders = [];
     }
 
     // Load Queries
@@ -147,50 +149,6 @@ const Store = {
 
   saveConfig() {
     localStorage.setItem('n5_config', JSON.stringify(this.config));
-  },
-
-  seedSampleOrder() {
-    const demoOrder = {
-      id: "N5-84291",
-      customerName: "Mohammad Irfan",
-      customerEmail: "irfan.demo@gmail.com",
-      customerPhone: "9849012345",
-      address: "House 12-2-417, Dilkusha Guest House Lane, Somajiguda, Hyderabad - 500082",
-      items: [
-        {
-          id: "n5-tee-1",
-          name: "Heavyweight 280 GSM Mineral Acid Wash Oversized Tee",
-          brand: "Fear of God Essentials",
-          price: 999,
-          size: "L",
-          quantity: 1,
-          image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=900&auto=format&fit=crop&q=85"
-        },
-        {
-          id: "n5-shirt-1",
-          name: "Classic Oxford Pure Cotton Button-Down Shirt",
-          brand: "Ralph Lauren",
-          price: 1399,
-          size: "XL",
-          quantity: 1,
-          image: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=900&auto=format&fit=crop&q=85"
-        }
-      ],
-      subtotal: 2398,
-      shipping: 0,
-      total: 2398,
-      status: "Shipped", // Placed -> Confirmed -> Packed -> Shipped -> Delivered
-      paymentMethod: "UPI QR (Verified)",
-      paymentProof: {
-        utr: "432109876543",
-        verified: true,
-        verifiedAt: new Date(Date.now() - 1000 * 60 * 60 * 20).toISOString()
-      },
-      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-      estimatedDelivery: "Tomorrow by 6:00 PM"
-    };
-    this.orders.push(demoOrder);
-    this.saveOrders();
   },
 
   // Navigation & Tabs
@@ -1380,23 +1338,34 @@ const Store = {
     const container = document.getElementById('orders-list-view');
     if (!container) return;
 
-    if (this.orders.length === 0) {
+    let ordersToShow = this.orders;
+    if (this.currentUser && !this.isAdmin) {
+      const userOrders = this.orders.filter(o => 
+        o.customerPhone === this.currentUser.phone || 
+        (o.customerEmail && this.currentUser.email && o.customerEmail.toLowerCase() === this.currentUser.email.toLowerCase())
+      );
+      ordersToShow = userOrders;
+    }
+
+    if (ordersToShow.length === 0) {
       container.innerHTML = `
-        <div class="bg-white rounded-3xl p-12 text-center border border-neutral-200 shadow-sm max-w-lg mx-auto">
+        <div class="bg-white rounded-3xl p-10 sm:p-12 text-center border border-neutral-200 shadow-sm max-w-lg mx-auto">
           <div class="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4 text-neutral-400">
             <i class="fa-solid fa-box-open text-2xl"></i>
           </div>
-          <h3 class="text-lg font-bold text-neutral-900 mb-1">No Orders Found</h3>
-          <p class="text-xs text-neutral-500 mb-6">Enter an Order ID above or place an order from our collection.</p>
-          <button onclick="Store.switchTab('clothes')" class="px-6 py-2.5 bg-neutral-900 text-white rounded-xl text-xs font-semibold hover:bg-black">
-            Explore Collection
+          <h3 class="text-lg font-bold text-neutral-900 mb-1">No Orders Placed Yet</h3>
+          <p class="text-xs text-neutral-500 mb-6 max-w-sm mx-auto leading-relaxed">
+            ${this.currentUser ? `Hi ${this.currentUser.name}, you haven't placed any orders yet. Once you place an order, its live tracking status will appear here in real-time.` : 'Enter your Order ID or phone number in the search bar above, or browse our collection to place your order.'}
+          </p>
+          <button onclick="Store.switchTab('clothes')" class="px-6 py-2.5 bg-neutral-900 text-white rounded-xl text-xs font-bold hover:bg-black transition-all shadow-sm">
+            Explore Collection & Order Now
           </button>
         </div>
       `;
       return;
     }
 
-    container.innerHTML = this.orders.map(order => this.renderOrderTrackingCard(order)).join('');
+    container.innerHTML = ordersToShow.map(order => this.renderOrderTrackingCard(order)).join('');
   },
 
   searchOrderById(customId = null) {
@@ -1419,7 +1388,7 @@ const Store = {
         <div class="bg-white rounded-3xl p-10 text-center border border-neutral-200 shadow-sm max-w-lg mx-auto">
           <i class="fa-solid fa-magnifying-glass text-3xl text-neutral-300 mb-3"></i>
           <h4 class="text-sm font-bold text-neutral-900">No order matching "${query}"</h4>
-          <p class="text-xs text-neutral-500 mt-1">Please check your Order ID (e.g. N5-84291) or your mobile number.</p>
+          <p class="text-xs text-neutral-500 mt-1">Please check your Order ID (from invoice) or your 10-digit mobile number.</p>
           <button onclick="Store.renderOrdersTab()" class="mt-4 text-xs font-semibold text-amber-700 underline">Show all orders</button>
         </div>
       `;
@@ -2602,7 +2571,17 @@ const Store = {
     if (!container) return;
 
     if (this.orders.length === 0) {
-      container.innerHTML = `<div class="p-8 text-center text-neutral-400">No customer orders yet.</div>`;
+      container.innerHTML = `
+        <div class="p-12 text-center text-neutral-400 bg-white rounded-2xl border border-dashed border-neutral-200">
+          <div class="w-14 h-14 rounded-full bg-neutral-100 text-neutral-400 flex items-center justify-center mx-auto mb-3">
+            <i class="fa-solid fa-boxes-packing text-2xl"></i>
+          </div>
+          <h4 class="text-sm font-bold text-neutral-800">No Customer Orders Yet</h4>
+          <p class="text-xs text-neutral-400 mt-1 max-w-sm mx-auto leading-relaxed">
+            Real-time customer orders placed on the store will appear here instantly with verified UTR numbers, item summaries, and 1-tap WhatsApp updates.
+          </p>
+        </div>
+      `;
       return;
     }
 
